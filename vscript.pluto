@@ -93,7 +93,6 @@ menu.toggle_loop(vscript, "Speed/Tacho", {""}, "", function()
         local car = entities.pointer_to_handle(car_ptr)
         local rpm = entities.get_rpm(car_ptr)
         local speed = math.ceil(GET_ENTITY_SPEED(car))
-        local screenWidth, screenHeight = directx.get_client_size()
         local width = 0.4
         local height = 0.015
         local max_speed =
