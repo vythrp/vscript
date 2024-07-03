@@ -1,0 +1,124 @@
+util.require_natives("3095a.g")
+
+local vscript = menu.my_root()
+menu.divider(vscript, "vscript")
+
+local wide_view = 70
+local narrow_view = 55
+menu.trigger_commands("sleekminimap on")
+
+-- Toggle between 55 and 70 degree FoV.
+menu.toggle(vscript,
+            "Wide View", {"wideview"},
+            "Increase the field of view.",
+            function(off)
+                if off then
+                    SET_GAMEPLAY_CAM_RELATIVE_HEADING(0.0)
+                    SET_FOLLOW_PED_CAM_VIEW_MODE(2)
+                    menu.trigger_commands("fovtponfoot " .. wide_view)
+                    menu.trigger_commands("fovtpinveh " .. wide_view)
+                    util.toast("Wide View: Active " .. "(" .. wide_view .. " degrees)")
+                else
+                    SET_FOLLOW_PED_CAM_VIEW_MODE(2)
+                    menu.trigger_commands("fovtponfoot " .. narrow_view)
+                    menu.trigger_commands("fovtpinveh " .. narrow_view)
+                    util.toast("Wide View: Disabled " .. "(" .. narrow_view .. " degrees)")
+                end
+            end)
+
+-- Toggle the HUD.
+menu.toggle(vscript,
+            "Disable HUD", {"disablehud"},
+            "Turn off the HUD.",
+            function(off)
+                if off then
+                    DISPLAY_HUD(false)
+                    DISPLAY_RADAR(false)
+                    FORCE_OFF_WANTED_STAR_FLASH(true)
+                    DISPLAY_CASH(false)
+                    DISPLAY_AREA_NAME(false)
+                else
+                    DISPLAY_HUD(true)
+                    DISPLAY_RADAR(true)
+                    FORCE_OFF_WANTED_STAR_FLASH(false)
+                    DISPLAY_CASH(true)
+                    DISPLAY_AREA_NAME(true)
+                end
+            end)
+
+-- Toggle between the crappy vanilla zoom, and the better zoom.
+menu.toggle(vscript,
+            "Better Radar", {"betterradar"},
+            "The coverage of big map at the size of little map.",
+            function(on)
+                if on then
+                    SET_RADAR_ZOOM(1400)
+                else
+                    SET_RADAR_ZOOM(900)
+                end
+            end)
+
+-- Mute the sirens, keep the lights.
+menu.toggle(vscript,
+            "Better Bootlicker", {"betterbootlicker"},
+            "Disable the annoying sirens in cop cars.",
+            function(on)
+                if on then
+                    SET_VEHICLE_HAS_MUTED_SIRENS(GET_VEHICLE_PED_IS_USING(players.user_ped()), true)
+                else
+                    SET_VEHICLE_HAS_MUTED_SIRENS(GET_VEHICLE_PED_IS_USING(players.user_ped()), false)
+                end
+            end)
+
+-- Disble cover.  Thanks Drizz.
+menu.toggle(vscript, "Disable Cover", {"disablecover"},
+            "Disable being able to take cover (for controller players)",
+            function(on)
+                if on then
+                    SET_PLAYER_CAN_USE_COVER(players.user(), false)
+                else
+                    SET_PLAYER_CAN_USE_COVER(players.user(), true)
+                end
+            end)
+
+function draw_bar(value, max_value, x, y, width, height, bar_color, back_color)
+    local bar_width = (value / max_value) * width
+    directx.draw_rect(x, y - height, width, height, back_color)
+    directx.draw_rect(x, y - height, bar_width, height, bar_color)
+end
+
+menu.toggle_loop(vscript, "Speed/Tacho", {""}, "", function()
+        local car_ptr = entities.get_user_vehicle_as_pointer(true)
+        if car_ptr ~= 0 then
+        local car = entities.pointer_to_handle(car_ptr)
+        local rpm = entities.get_rpm(car_ptr)
+        local speed = math.ceil(GET_ENTITY_SPEED(car))
+        local screenWidth, screenHeight = directx.get_client_size()
+        local width = 0.4
+        local height = 0.015
+        local max_speed =
+        menu.get_value(menu.ref_by_path("Vehicle>Movement>Speed Limit (KMH)"))
+        local max_rpm = 1.01
+        local cur_speed = math.ceil(speed * 3.6)
+        local x = 0.5 - width * 0.5
+        local y = 0.05
+        draw_bar(cur_speed, max_speed, x, y, width, height,
+                 { r = 34.0/255, g = 139.0/255, b = 34.0/255, a = 0.7},
+                 { r = 255.0/255, g = 255.0/255, b = 255.0/255, a = 0.0 })
+
+        draw_bar(rpm, max_rpm, x, y + height, width, height,
+                 { r = 189.0/255, g = 0.0, b = 26.0/255, a = 0.7},
+                 { r = 255.0/255, g = 255.0/255, b = 255.0/255, a = 0.0 })
+        directx.draw_text(x - 0.025, y, tostring(math.floor(rpm * 100)) .. "%",
+                          ALIGN_CENTRE, 1.0,
+                          { r = 189.0/255, g = 0.0, b = 26.0/255, a = 0.99}, false)
+
+        directx.draw_text(x + width + 0.035, y, tostring(cur_speed) .. " KPH",
+                          ALIGN_CENTRE, 1.0,
+                          { r = 39.0/255, g = 177.0/255, b = 70.0/255, a = 0.99}, false)
+        end
+end)
+
+
+util.keep_running()
+
