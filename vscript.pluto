@@ -30,12 +30,10 @@ local function enforce_radar_zoom()
     SET_RADAR_ZOOM(better_radar_enabled and 1400 or 900)
 end
 
-
 local function toggle_muted_sirens(is_muted)
     local vehicle = GET_VEHICLE_PED_IS_USING(players.user_ped())
     SET_VEHICLE_HAS_MUTED_SIRENS(vehicle, is_muted)
 end
-
 
 -- Function to toggle cover.  Thanks Drizz
 local function toggle_cover(is_enabled)
@@ -48,6 +46,16 @@ local function draw_bar(value, max_value, x, y, width, height, bar_color, back_c
     directx.draw_rect_client(x, y - height, bar_width, height, bar_color)
 end
 
+function draw_pulsing_filled_rectangle(x, y, width, height, color, pulse_speed, time)
+    local pulse_alpha = 0.5 + 0.5 * math.cos(time * pulse_speed)
+    local pulsing_color = {
+        r = color.r,
+        g = color.g,
+        b = color.b,
+        a = color.a * pulse_alpha
+    }
+    directx.draw_rect_client(x, y, width, height, pulsing_color)
+end
 
 local function interpolate_color(color1, color2, factor)
     return {
@@ -79,6 +87,10 @@ local function draw_segmented_bar_with_speed(value, max_value, x, y, width, heig
         else
             break
         end
+    end
+    local time = os.clock()
+    if value >= 0.9 * max_value then
+        draw_pulsing_filled_rectangle(x, y - height, width, height, end_color, 20.0, time)
     end
 end
 
@@ -184,7 +196,7 @@ menu.toggle_loop(vscript, "Speedo/Tacho", { "" }, "", function()
             ALIGN_CENTRE, 1.0,
             { r = 189.0 / 255, g = 0.0, b = 26.0 / 255, a = 0.99 }, false)
 
-        directx.draw_text_client(x + gauge_length + 0.035, y, tostring(cur_speed) .. " KPH",
+        directx.draw_text_client(x + gauge_length + 0.03, y, tostring(cur_speed) .. " KPH",
             ALIGN_CENTRE, 1.0,
             { r = 39.0 / 255, g = 177.0 / 255, b = 70.0 / 255, a = 0.99 }, false)
 
