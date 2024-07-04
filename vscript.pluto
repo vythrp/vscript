@@ -114,6 +114,34 @@ local function draw_segmented_vertical_bar(value, max_value, x, y, width, height
     end
 end
 
+local function get_fps_color(fps)
+    if fps >= 28 then
+        return { r = 128.0 / 255, g = 0.0, b = 128.0 / 255, a = 0.9 }
+    elseif fps >= 20 then
+        return { r = 1.0, g = 165.0 / 255, b = 0.0, a = 0.9 }
+    else
+        return { r = 189.0 / 255, g = 0.0, b = 26.0 / 255, a = 0.9 }
+    end
+end
+
+local function draw_fps(x, y)
+    local fps = util.get_tps()
+    local color = get_fps_color(fps)
+    directx.draw_text_client(x, y, tostring(fps) .. " FPS", ALIGN_LEFT, 1.0, color, false)
+end
+
+local function draw_fps_bar(x, y, width, height)
+    local max_fps = 30
+    local fps = math.min(math.floor(util.get_tps()), max_fps)
+    local bar_width = (fps / max_fps) * width
+    local color = get_fps_color(fps)
+
+    -- Draw background bar
+    directx.draw_rect_client(x, y, width, height, {r = 0.0, g = 0.0, b = 0.0, a = 0.5})
+
+    -- Draw filled bar
+    directx.draw_rect_client(x, y, bar_width, height, color)
+end
 
 -- Toggle between 55 and 70 degree FoV
 menu.toggle(vscript, "Wide View", { "wideview" }, "Increase the field of view.",
@@ -215,6 +243,16 @@ menu.toggle_loop(vscript, "Speedo/Tacho", { "" }, "", function()
             { r = 0.0, g = 0.0, b = 0.0, a = 0.3 },
             segments * 0.4, v_gap)
     end
+end)
+
+menu.toggle_loop(vscript, "Show FPS Bar", {""},
+                 "",
+                 function()
+                     local gauge_length = 0.2
+                     local gauge_height = 0.0025
+                     local x = 0.5 - gauge_length * 0.5
+                     local y = 0.995
+    draw_fps_bar(x, y, gauge_length, gauge_height)
 end)
 
 util.keep_running()
