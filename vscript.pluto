@@ -9,47 +9,60 @@ local better_radar_enabled = false
 
 menu.trigger_commands("sleekminimap on")
 
-local black = {
-    ["r"] = 0.0,
-    ["g"] = 0.0,
-    ["b"] = 0.0,
-    ["a"] = 0.7
-}
+hud_opacity_factor = 255
 
-local white = {
-    ["r"] = 1.0,
-    ["g"] = 1.0,
-    ["b"] = 1.0,
-    ["a"] = 0.05
-}
+local colors = {}
 
-local yellow = {
-    ["r"] = 1.0,
-    ["g"] = 165.0/255,
-    ["b"] = 0.0,
-    ["a"] = 0.5
-}
+local function update_colors()
+    colors.black = {
+        ["r"] = 0.0,
+        ["g"] = 0.0,
+        ["b"] = 0.0,
+        ["a"] = 0.7 * (hud_opacity_factor / 255)
+    }
 
-local green = {
-    ["r"] = 39.0/255,
-    ["g"] = 177.0/255,
-    ["b"] = 70.0/255,
-    ["a"] = 1.0
-}
+    colors.white = {
+        ["r"] = 1.0,
+        ["g"] = 1.0,
+        ["b"] = 1.0,
+        ["a"] = 0.15 * (hud_opacity_factor / 255)
+    }
 
-local magenta = {
-    ["r"] = 128.0/255,
-    ["g"] = 0.0/255,
-    ["b"] = 128.0/255,
-    ["a"] = 0.5
-}
+    colors.yellow = {
+        ["r"] = 1.0,
+        ["g"] = 153.0/255,
+        ["b"] = 0.0,
+        ["a"] = 0.5 * (hud_opacity_factor / 255)
+    }
 
-local red = {
-    ["r"] = 189.0/255,
-    ["g"] = 0.0/255,
-    ["b"] = 26.0/255,
-    ["a"] = 1.0
-}
+    colors.green = {
+        ["r"] = 39.0/255,
+        ["g"] = 177.0/255,
+        ["b"] = 70.0/255,
+        ["a"] = 0.5 * (hud_opacity_factor / 255)
+    }
+
+    colors.magenta = {
+        ["r"] = 128.0/255,
+        ["g"] = 0.0/255,
+        ["b"] = 128.0/255,
+        ["a"] = 0.5 * (hud_opacity_factor / 255)
+    }
+
+    colors.red = {
+        ["r"] = 189.0/255,
+        ["g"] = 0.0/255,
+        ["b"] = 26.0/255,
+        ["a"] = 0.8 * (hud_opacity_factor / 255)
+    }
+end
+
+update_colors()
+
+menu.slider(vscript, "Dash Opacity", {}, "Set the dash opacity.", 0, 255, hud_opacity_factor, 1, function(value)
+    hud_opacity_factor = value
+    update_colors()
+end)
 
 local function set_FoV(is_wide)
     SET_GAMEPLAY_CAM_RELATIVE_HEADING(0.0)
@@ -92,11 +105,11 @@ end
 
 local function get_fps_color(fps)
     if fps >= 28 then
-        return green
+        return colors.green
     elseif fps >= 20 then
-        return yellow
+        return colors.yellow
     else
-        return red
+        return colors.red
     end
 end
 
@@ -129,12 +142,24 @@ local function interpolate_color(color1, color2, factor)
 end
 
 local function draw_gauge_background()
-    local radius = 0.4
-    local colour = black
+    local radius = 0.32
+    local colour = colors.black
     local pos_x = 0.5
-    local pos_y = 1.5
+    local pos_y = 1.35
     directx.draw_circle(pos_x, pos_y, radius, colour, 2)
     directx.draw_circle(pos_x, pos_y, radius, colour, 3)
+    --directx.draw_rect(0.24, 0.77, 0.52, 0.30, {r=0.99, b=0.99, g=0.99, a=0.1})
+
+end
+
+local function draw_gauge_foreground()
+    local radius = 0.32
+    local pos_x = 0.5
+    local pos_y = 1.54
+    local color = {r = 1.0, g = 1.0, b = 1.0, a = 1.0}
+    color.a = 0.01
+    directx.draw_circle(pos_x, pos_y - 0.01, radius - 0.005, color, 2)
+    directx.draw_circle(pos_x, pos_y - 0.01, radius - 0.005, color, 3)
 end
 
 local function draw_numeric_display(value, pos_x, pos_y, scale, color)
@@ -154,12 +179,13 @@ local function draw_segment_bar_speed(pos_x, pos_y, width, height, segments, act
         local x_shift = (i / segments)^3 * shift_intensity
         if i < active_segments then
             local color_factor = i / (segments - (segments * 0.05))
-            local segment_color = interpolate_color(green, red, color_factor)
+            local segment_color = interpolate_color(colors.green, colors.red, color_factor)
             directx.draw_rect(pos_x + x_offset - x_shift, y,
-                              segment_width, segment_height - 0.005,
-                              segment_color)
+                                     segment_width, segment_height - 0.005,
+                                     segment_color)
         else
-            directx.draw_rect(pos_x + x_offset - x_shift, y, segment_width, segment_height - 0.005, white)
+            directx.draw_rect(pos_x + x_offset - x_shift,
+                                     y, segment_width, segment_height - 0.005, colors.white)
         end
     end
 end
@@ -173,14 +199,14 @@ local function draw_gauge_speed(pos_x, pos_y, value, max_value)
     draw_segment_bar_speed(pos_x, pos_y, bar_width, bar_height, segments, active_segments)
 
     local num_pos_y = pos_y + bar_height - 0.2
-    draw_numeric_display(value, pos_x, num_pos_y, 1.0, yellow)
-    directx.draw_text(pos_x, num_pos_y + 0.02, "KPH", ALIGN_CENTRE, 0.6, yellow, true)
+    draw_numeric_display(value, pos_x, num_pos_y, 1.0, colors.yellow)
+    directx.draw_text(pos_x, num_pos_y + 0.02, "KPH", ALIGN_CENTRE, 0.6, colors.yellow, true)
 end
 
 local function draw_segment_bar_rpm(pos_x, pos_y, width, height, segments, active_segments)
-    local segment_width = (width / segments) * 1.4
-    local curve_intensity = 0.10
-    local shift_intensity = 0.03
+    local segment_width = (width / segments) * 1.2
+    local curve_intensity = 0.12
+    local shift_intensity = 0.05
     local pulse_speed = 10
 
     for i = 0, segments - 1 do
@@ -191,16 +217,16 @@ local function draw_segment_bar_rpm(pos_x, pos_y, width, height, segments, activ
 
         if i < active_segments then
             local color_factor = i / (segments - (segments * 0.05))
-            local segment_color = interpolate_color(magenta, red, color_factor)
+            local segment_color = interpolate_color(colors.magenta, colors.red, color_factor)
 
             if active_segments >= segments then
                 local pulse_factor = (math.sin(os.clock() * pulse_speed) + 1) / 2
-                segment_color = interpolate_color(segment_color, red, pulse_factor)
+                segment_color = interpolate_color(segment_color, colors.red, pulse_factor)
             end
 
             directx.draw_rect(x, pos_y + y_offset - y_shift, segment_width - 0.005, segment_height, segment_color)
         else
-            directx.draw_rect(x, pos_y + y_offset - y_shift, segment_width - 0.005, segment_height, white)
+            directx.draw_rect(x, pos_y + y_offset - y_shift, segment_width - 0.005, segment_height, colors.white)
         end
     end
 end
@@ -213,8 +239,8 @@ local function draw_gauge_rpm(pos_x, pos_y, value, max_value)
 
     draw_segment_bar_rpm(pos_x, pos_y, bar_width, bar_height, segments, active_segments)
     local num_pos_y = pos_y + bar_height - 0.15
-    draw_numeric_display(value, pos_x, num_pos_y, 1.0, yellow)
-    directx.draw_text(pos_x, num_pos_y + 0.02, "% REV", ALIGN_CENTRE, 0.6, yellow, true)
+    draw_numeric_display(value, pos_x, num_pos_y, 1.0, colors.yellow)
+    directx.draw_text(pos_x, num_pos_y + 0.02, "% REV", ALIGN_CENTRE, 0.6, colors.yellow, true)
 end
 
 local function draw_segmented_vertical_bar(value, max_value, x, y, width, height, start_color, end_color, back_color, segments,
@@ -222,7 +248,7 @@ local function draw_segmented_vertical_bar(value, max_value, x, y, width, height
     local bar_height = (value / max_value) * height
     local segment_height = (height / segments) - gap
 
-    directx.draw_rect_client(x, y, width, height, back_color)
+    directx.draw_rect(x, y, width, height, back_color)
 
     for i = 0, segments - 1 do
         local segment_y = y + height - (i * (segment_height + gap)) - segment_height
@@ -230,7 +256,7 @@ local function draw_segmented_vertical_bar(value, max_value, x, y, width, height
             local color_factor = i / (segments - 1)
 
             local segment_color = interpolate_color(start_color, end_color, color_factor)
-            directx.draw_rect_client(x, segment_y, width, segment_height, segment_color)
+            directx.draw_rect(x, segment_y, width, segment_height, segment_color)
         else
             break
         end
@@ -251,16 +277,17 @@ local function draw_hud_extra(engine_health, body_health, gear, ping, packet_los
     end
     directx.draw_text_client(0.50, 0.9, tostring(gear),
                              ALIGN_CENTRE, 1.0,
-                             red, true)
-    directx.draw_circle(0.5015, 0.9015, 0.02, black)
-    directx.draw_text_client(0.473, 0.96, "Performance", ALIGN_CENTRE, 0.5, yellow, true)
-    directx.draw_text_client(0.528, 0.96, "Cosmetic", ALIGN_CENTRE, 0.5, yellow, true)
-    draw_segmented_vertical_bar(engine_health, 1000, 0.47, 0.85, 0.008, 0.1, red, green, black, 10, 0.002)
-    draw_segmented_vertical_bar(body_health, 1000, 0.525, 0.85, 0.008, 0.1, red, green, black, 10, 0.002)
+                             colors.red, true)
+    directx.draw_circle(0.5015, 0.9015, 0.02, colors.black)
+    directx.draw_text(0.473, 0.96, "Performance", ALIGN_CENTRE, 0.5, colors.yellow, true)
+    directx.draw_text(0.528, 0.96, "Cosmetic", ALIGN_CENTRE, 0.5, colors.yellow, true)
+    draw_segmented_vertical_bar(engine_health, 1000, 0.47, 0.85, 0.008, 0.1, colors.red, colors.green, colors.black, 10, 0.002)
+    draw_segmented_vertical_bar(body_health, 1000, 0.525, 0.85, 0.008, 0.1, colors.red, colors.green, colors.black, 10, 0.002)
 
 end
 
-menu.toggle_loop(vscript, "Speedo/Tacho", { "" }, "", function()
+menu.toggle_loop(vscript, "Dash", { "enablevdash" },
+    "Speedometer/Tachometer &c.", function()
     local car_ptr = entities.get_user_vehicle_as_pointer(true)
     if car_ptr ~= 0 then
         local car = entities.pointer_to_handle(car_ptr)
@@ -275,10 +302,10 @@ menu.toggle_loop(vscript, "Speedo/Tacho", { "" }, "", function()
         draw_gauge_speed(0.4, 1.0, speed, max_speed)
         draw_gauge_rpm(0.6, 1.025, rpm, 100)
         draw_hud_extra(engine_health, body_health, gear)
+        --draw_gauge_foreground()
 
     end
 end)
-
 
 -- Toggle between 55 and 70 degree FoV
 menu.toggle(vscript, "Wide View", { "wideview" }, "Increase the field of view.",
@@ -293,11 +320,11 @@ menu.toggle(vscript, "Disable HUD", { "disablehud" }, "Turn off the HUD.",
         toggle_HUD(not is_enabled)
     end)
 
+
 -- Toggle the radar
 menu.toggle(vscript, "Disable Radar", { "disableradar" }, "Turn off the radar.",
     function(is_enabled)
         toggle_radar(is_enabled)
-
     end)
 
 -- Toggle menu item for radar zoom
@@ -327,7 +354,7 @@ menu.toggle_loop(vscript, "Show FPS Bar", {""},
                      local gauge_length = 0.1
                      local gauge_height = 0.0025
                      local x = 0.5 - gauge_length * 0.5
-                     local y = 0.995
+                     local y = 0.99
     draw_fps_bar(x, y, gauge_length, gauge_height)
 end)
 
