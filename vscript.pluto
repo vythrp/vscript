@@ -18,7 +18,7 @@ local function update_colors()
         ["r"] = 0.0,
         ["g"] = 0.0,
         ["b"] = 0.0,
-        ["a"] = 0.7 * (hud_opacity_factor / 255)
+        ["a"] = 0.8 * (hud_opacity_factor / 255)
     }
 
     colors.white = {
@@ -32,14 +32,14 @@ local function update_colors()
         ["r"] = 1.0,
         ["g"] = 153.0/255,
         ["b"] = 0.0,
-        ["a"] = 0.5 * (hud_opacity_factor / 255)
+        ["a"] = 0.4 * (hud_opacity_factor / 255)
     }
 
     colors.green = {
         ["r"] = 39.0/255,
         ["g"] = 177.0/255,
         ["b"] = 70.0/255,
-        ["a"] = 0.5 * (hud_opacity_factor / 255)
+        ["a"] = 0.4 * (hud_opacity_factor / 255)
     }
 
     colors.magenta = {
@@ -55,13 +55,46 @@ local function update_colors()
         ["b"] = 26.0/255,
         ["a"] = 0.8 * (hud_opacity_factor / 255)
     }
+    colors.transparent = {
+        ["r"] = 0.0,
+        ["g"] = 0.0,
+        ["b"] = 0.0,
+        ["a"] = 0.0
+    }
+    colors.smoke = {
+        ["r"] = 0.1,
+        ["g"] = 0.1,
+        ["b"] = 0.1,
+        ["a"] = 0.1 * (hud_opacity_factor / 255)
+    }
 end
 
 update_colors()
 
-menu.slider(vscript, "Dash Opacity", {}, "Set the dash opacity.", 0, 255, hud_opacity_factor, 1, function(value)
-    hud_opacity_factor = value
-    update_colors()
+local function bezier_quadratic(p0, p1, p2, t)
+    local u = 1 - t
+    local tt = t * t
+    local uu = u * u
+    local x = (uu * p0.x) + (2 * u * t * p1.x) + (tt * p2.x)
+    local y = (uu * p0.y) + (2 * u * t * p1.y) + (tt * p2.y)
+    return { x = x, y = y }
+end
+
+local function draw_quadratic_bezier_curve(p0, p1, p2, segments, color)
+    local last_point = p0
+    for i = 1, segments do
+        local t = i / segments
+        local point = bezier_quadratic(p0, p1, p2, t)
+        directx.draw_line(last_point.x, last_point.y, point.x, point.y, color)
+        last_point = point
+    end
+end
+
+menu.slider(vscript, "Dash Opacity", {}, "Set the dash opacity.", 0,
+            255, hud_opacity_factor, 1,
+            function(value)
+                hud_opacity_factor = value
+                update_colors()
 end)
 
 local function set_FoV(is_wide)
@@ -90,7 +123,7 @@ local function enforce_radar_zoom()
 end
 
 util.on_transition_finished(function()
-    enforce_radar_zoom()
+                                enforce_radar_zoom()
 end)
 
 local function toggle_muted_sirens(is_muted)
@@ -143,13 +176,65 @@ end
 
 local function draw_gauge_background()
     local radius = 0.32
-    local colour = colors.black
     local pos_x = 0.5
     local pos_y = 1.35
-    directx.draw_circle(pos_x, pos_y, radius, colour, 2)
-    directx.draw_circle(pos_x, pos_y, radius, colour, 3)
-    --directx.draw_rect(0.24, 0.77, 0.52, 0.30, {r=0.99, b=0.99, g=0.99, a=0.1})
+    local circle_colour = {r = 255/255, g = 153/255, b = 0/255, a = 0.02 * hud_opacity_factor / 255}
+    local triangle_side_length = 0.27
+    local triangle_color = colors.black
+    local height = triangle_side_length * math.sqrt(3) / 2
+    local mid_center_x = 0.5
+    local center_y = 0.93
+    local left_center_x = mid_center_x - triangle_side_length / 2
+    local right_center_x = mid_center_x + triangle_side_length / 2
+    local triangle_vertices = {
+        mid_center_x - triangle_side_length / 2, center_y - height / 2,
+        mid_center_x + triangle_side_length / 2, center_y - height / 2,
+        mid_center_x, center_y + height / 2
+    }
+    directx.draw_triangle(
+        triangle_vertices[1], triangle_vertices[2],
+        triangle_vertices[3], triangle_vertices[4],
+        triangle_vertices[5], triangle_vertices[6],
+        triangle_color
+    )
+    local left_center_x = mid_center_x - triangle_side_length / 2
+    local inverted_triangle_vertices = {
+        left_center_x + triangle_side_length / 2, center_y + height / 2,
+        left_center_x - triangle_side_length / 2, center_y + height / 2,
+        left_center_x, center_y - height / 2
+    }
 
+    directx.draw_triangle(
+        inverted_triangle_vertices[1], inverted_triangle_vertices[2],
+        inverted_triangle_vertices[3], inverted_triangle_vertices[4],
+        inverted_triangle_vertices[5], inverted_triangle_vertices[6],
+        triangle_color
+    )
+
+    local right_center_x = mid_center_x + triangle_side_length / 2
+    local inverted_triangle_vertices = {
+        right_center_x + triangle_side_length / 2, center_y + height / 2,
+        right_center_x - triangle_side_length / 2, center_y + height / 2,
+        right_center_x, center_y - height / 2
+    }
+
+    directx.draw_triangle(
+        inverted_triangle_vertices[1], inverted_triangle_vertices[2],
+        inverted_triangle_vertices[3], inverted_triangle_vertices[4],
+        inverted_triangle_vertices[5], inverted_triangle_vertices[6],
+        triangle_color
+    )
+    --directx.draw_circle(pos_x, pos_y, radius, circle_colour, 2)
+    --directx.draw_circle(pos_x, pos_y, radius, circle_colour, 3)
+
+    local shift_y = -0.14
+    local segments = 300
+    local p0 = { x = pos_x - 1.13 * radius , y = pos_y + shift_y}
+    local p1 = { x = pos_x, y = 0.5 + shift_y} -- Control point for the curve
+    local p2 = { x = pos_x + 1.13 * radius , y = pos_y + shift_y}
+
+    -- Draw the quadratic Bezier curve
+    -- draw_quadratic_bezier_curve(p0, p1, p2, segments, {r=1.0,g=1.0,b=1.0,a=1.0})
 end
 
 local function draw_gauge_foreground()
@@ -164,7 +249,7 @@ end
 
 local function draw_numeric_display(value, pos_x, pos_y, scale, color)
     directx.draw_text(pos_x, pos_y, string.format("%03d", value),
-    ALIGN_CENTRE, scale, color, true)
+                      ALIGN_CENTRE, scale, color, true)
 end
 
 local function draw_segment_bar_speed(pos_x, pos_y, width, height, segments, active_segments)
@@ -181,11 +266,11 @@ local function draw_segment_bar_speed(pos_x, pos_y, width, height, segments, act
             local color_factor = i / (segments - (segments * 0.05))
             local segment_color = interpolate_color(colors.green, colors.red, color_factor)
             directx.draw_rect(pos_x + x_offset - x_shift, y,
-                                     segment_width, segment_height - 0.005,
-                                     segment_color)
+                              segment_width, segment_height - 0.005,
+                              segment_color)
         else
             directx.draw_rect(pos_x + x_offset - x_shift,
-                                     y, segment_width, segment_height - 0.005, colors.white)
+                              y, segment_width, segment_height - 0.005, colors.smoke)
         end
     end
 end
@@ -223,10 +308,13 @@ local function draw_segment_bar_rpm(pos_x, pos_y, width, height, segments, activ
                 local pulse_factor = (math.sin(os.clock() * pulse_speed) + 1) / 2
                 segment_color = interpolate_color(segment_color, colors.red, pulse_factor)
             end
-
-            directx.draw_rect(x, pos_y + y_offset - y_shift, segment_width - 0.005, segment_height, segment_color)
+            directx.draw_rect(x, pos_y + y_offset - y_shift,
+                              segment_width - 0.005,
+                              segment_height, segment_color)
         else
-            directx.draw_rect(x, pos_y + y_offset - y_shift, segment_width - 0.005, segment_height, colors.white)
+            directx.draw_rect(x, pos_y + y_offset - y_shift,
+                              segment_width - 0.005,
+                              segment_height, colors.smoke)
         end
     end
 end
@@ -243,8 +331,9 @@ local function draw_gauge_rpm(pos_x, pos_y, value, max_value)
     directx.draw_text(pos_x, num_pos_y + 0.02, "% REV", ALIGN_CENTRE, 0.6, colors.yellow, true)
 end
 
-local function draw_segmented_vertical_bar(value, max_value, x, y, width, height, start_color, end_color, back_color, segments,
-                                     gap)
+local function draw_segmented_vertical_bar(value, max_value, x, y,
+                                           width, height, start_color,
+                                           end_color, back_color, segments, gap)
     local bar_height = (value / max_value) * height
     local segment_height = (height / segments) - gap
 
@@ -264,6 +353,7 @@ local function draw_segmented_vertical_bar(value, max_value, x, y, width, height
 end
 
 local function draw_hud_extra(engine_health, body_health, gear, ping, packet_loss)
+    local in_car = IS_PED_IN_ANY_VEHICLE(players.user_ped(), false)
     local speed_vector =
         GET_ENTITY_SPEED_VECTOR(entities.get_user_vehicle_as_handle(true), true)
     local vx = speed_vector.x
@@ -272,79 +362,83 @@ local function draw_hud_extra(engine_health, body_health, gear, ping, packet_los
     if vy < 0 then
         gear = "R"
     end
-    if math.floor(vy) == 0 then
+    if math.floor(vy) == 0 and in_car then
+        gear = "N"
+    end
+    if math.floor(vy) == 0 and not in_car then
         gear = "P"
     end
     directx.draw_text_client(0.50, 0.9, tostring(gear),
                              ALIGN_CENTRE, 1.0,
-                             colors.red, true)
-    directx.draw_circle(0.5015, 0.9015, 0.02, colors.black)
+    colors.yellow, true)
+    directx.draw_circle(0.5015, 0.9015, 0.02, colors.smoke)
     directx.draw_text(0.473, 0.96, "Performance", ALIGN_CENTRE, 0.5, colors.yellow, true)
     directx.draw_text(0.528, 0.96, "Cosmetic", ALIGN_CENTRE, 0.5, colors.yellow, true)
-    draw_segmented_vertical_bar(engine_health, 1000, 0.47, 0.85, 0.008, 0.1, colors.red, colors.green, colors.black, 10, 0.002)
-    draw_segmented_vertical_bar(body_health, 1000, 0.525, 0.85, 0.008, 0.1, colors.red, colors.green, colors.black, 10, 0.002)
+    draw_segmented_vertical_bar(engine_health, 1000, 0.47, 0.85,
+                                0.008, 0.1, colors.red, colors.green, colors.smoke, 10, 0.002)
+    draw_segmented_vertical_bar(body_health, 1000, 0.525, 0.85, 0.008,
+                                0.1, colors.red, colors.green, colors.smoke, 10, 0.002)
 
 end
 
 menu.toggle_loop(vscript, "Dash", { "enablevdash" },
-    "Speedometer/Tachometer &c.", function()
-    local car_ptr = entities.get_user_vehicle_as_pointer(true)
-    if car_ptr ~= 0 then
-        local car = entities.pointer_to_handle(car_ptr)
-        local speed = math.ceil(GET_ENTITY_SPEED(car) * 3.6)
-        local max_speed = menu.get_value(menu.ref_by_path("Vehicle>Movement>Speed Limit (KMH)"))
-        local rpm = math.ceil(_GET_VEHICLE_CURRENT_REV_RATIO(car) * 100)
-        local gear = _GET_VEHICLE_CURRENT_DRIVE_GEAR(car)
-        local engine_health = GET_VEHICLE_ENGINE_HEALTH(car)
-        local body_health = GET_VEHICLE_BODY_HEALTH(car)
+                 "Speedometer/Tachometer &c.", function()
+                                                   local car_ptr = entities.get_user_vehicle_as_pointer(true)
+                                                   if car_ptr ~= 0 then
+                                                       local car = entities.pointer_to_handle(car_ptr)
+                                                       local speed = math.ceil(GET_ENTITY_SPEED(car) * 3.6)
+                                                       local max_speed = menu.get_value(menu.ref_by_path("Vehicle>Movement>Speed Limit (KMH)"))
+                                                       local rpm = math.ceil(_GET_VEHICLE_CURRENT_REV_RATIO(car) * 100)
+                                                       local gear = _GET_VEHICLE_CURRENT_DRIVE_GEAR(car)
+                                                       local engine_health = GET_VEHICLE_ENGINE_HEALTH(car)
+                                                       local body_health = GET_VEHICLE_BODY_HEALTH(car)
 
-        draw_gauge_background()
-        draw_gauge_speed(0.4, 1.0, speed, max_speed)
-        draw_gauge_rpm(0.6, 1.025, rpm, 100)
-        draw_hud_extra(engine_health, body_health, gear)
+                                                       draw_gauge_background()
+                                                       draw_gauge_speed(0.4, 1.0, speed, max_speed)
+                                                       draw_gauge_rpm(0.6, 1.025, rpm, 100)
+                                                       draw_hud_extra(engine_health, body_health, gear)
         --draw_gauge_foreground()
-
-    end
+                                                   end
 end)
 
 -- Toggle between 55 and 70 degree FoV
 menu.toggle(vscript, "Wide View", { "wideview" }, "Increase the field of view.",
-    function(on)
-        set_FoV(on)
-    end)
+            function(on)
+                set_FoV(on)
+            end)
 
 
 -- Toggle the HUD
 menu.toggle(vscript, "Disable HUD", { "disablehud" }, "Turn off the HUD.",
-    function(is_enabled)
-        toggle_HUD(not is_enabled)
-    end)
+            function(is_enabled)
+                toggle_HUD(not is_enabled)
+            end)
 
 
 -- Toggle the radar
 menu.toggle(vscript, "Disable Radar", { "disableradar" }, "Turn off the radar.",
-    function(is_enabled)
-        toggle_radar(is_enabled)
-    end)
+            function(is_enabled)
+                toggle_radar(is_enabled)
+            end)
 
 -- Toggle menu item for radar zoom
 menu.toggle_loop(vscript, "Better Radar", { "betterradar" }, "The coverage of big map at the size of little map.",
-    function(on)
-        better_radar_enabled = on
-        enforce_radar_zoom()
-    end)
+                 function(on)
+                     better_radar_enabled = on
+                     enforce_radar_zoom()
+                 end)
 
 -- Mute the sirens, keep the lights
 menu.toggle(vscript, "Better Bootlicker", { "betterbootlicker" }, "Disable the annoying sirens in cop cars.",
-    function(on)
-        toggle_muted_sirens(on)
-    end)
+            function(on)
+                toggle_muted_sirens(on)
+            end)
 
 -- Disable cover
 menu.toggle(vscript, "Disable Cover", { "disablecover" }, "Disable cover (for controller players)",
-    function(on)
-        toggle_cover(not on)
-    end)
+            function(on)
+                toggle_cover(not on)
+            end)
 
 
 -- Show FPS bar
@@ -355,7 +449,7 @@ menu.toggle_loop(vscript, "Show FPS Bar", {""},
                      local gauge_height = 0.0025
                      local x = 0.5 - gauge_length * 0.5
                      local y = 0.99
-    draw_fps_bar(x, y, gauge_length, gauge_height)
-end)
+                     draw_fps_bar(x, y, gauge_length, gauge_height)
+                 end)
 
 util.keep_running()
