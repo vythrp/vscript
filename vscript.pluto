@@ -6,10 +6,16 @@ menu.divider(vscript, "vscript")
 local wide_view = 70
 local narrow_view = 55
 local better_radar_enabled = false
+local prev_is_drifting = false
+local lateral_speed_threshold = 7.0
+local history_size = 20
+local vx_history = {}
+local not_drifting_delay_frames = 15
+local frames_not_drifting = 0
+hud_opacity_factor = 255
 
 menu.trigger_commands("sleekminimap on")
 
-hud_opacity_factor = 255
 
 local colors = {}
 
@@ -351,13 +357,6 @@ local function draw_segmented_vertical_bar(value, max_value, x, y,
     end
 end
 
-local prev_is_drifting = false
-local lateral_speed_threshold = 7.0
-local history_size = 20
-local vx_history = {}
-local not_drifting_delay_frames = 15
-
-local frames_not_drifting = 0
 
 local function update_vx_history(vx)
     table.insert(vx_history, vx)
