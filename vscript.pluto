@@ -65,7 +65,7 @@ local function update_colors()
         ["r"] = 0.1,
         ["g"] = 0.1,
         ["b"] = 0.1,
-        ["a"] = 0.1 * (hud_opacity_factor / 255)
+        ["a"] = 0.3 * (hud_opacity_factor / 255)
     }
 end
 
@@ -233,7 +233,6 @@ local function draw_gauge_background()
     local p1 = { x = pos_x, y = 0.5 + shift_y} -- Control point for the curve
     local p2 = { x = pos_x + 1.13 * radius , y = pos_y + shift_y}
 
-    -- Draw the quadratic Bezier curve
     -- draw_quadratic_bezier_curve(p0, p1, p2, segments, {r=1.0,g=1.0,b=1.0,a=1.0})
 end
 
@@ -352,97 +351,152 @@ local function draw_segmented_vertical_bar(value, max_value, x, y,
     end
 end
 
+local prev_is_drifting = false
+local lateral_speed_threshold = 7.0
+local history_size = 20
+local vx_history = {}
+local not_drifting_delay_frames = 15
+
+local frames_not_drifting = 0
+
+local function update_vx_history(vx)
+    table.insert(vx_history, vx)
+    if #vx_history > history_size then
+        table.remove(vx_history, 1)
+    end
+end
+
+local function calculate_average_vx()
+    local sum = 0
+    for _, v in ipairs(vx_history) do
+        sum = sum + v
+    end
+    return sum / #vx_history
+end
+
+local function get_drift()
+    local car = entities.get_user_vehicle_as_handle(true)
+
+    local forward_x = GET_ENTITY_FORWARD_X(car)
+    local forward_y = GET_ENTITY_FORWARD_Y(car)
+
+    local speed_vector = GET_ENTITY_SPEED_VECTOR(car, true)
+    local vx = speed_vector.x
+
+    update_vx_history(vx)
+
+    local avg_vx = calculate_average_vx()
+
+    local is_drifting = math.abs(avg_vx) > lateral_speed_threshold and math.sqrt(forward_x * forward_x + forward_y * forward_y) > 0.1
+
+    if is_drifting then
+        prev_is_drifting = true
+        frames_not_drifting = 0
+    elseif math.abs(avg_vx) <= lateral_speed_threshold / 2 then
+        frames_not_drifting = frames_not_drifting + 1
+        if frames_not_drifting >= not_drifting_delay_frames then
+            prev_is_drifting = false
+        end
+    else
+        frames_not_drifting = 0
+    end
+end
+
 local function draw_hud_extra(engine_health, body_health, gear, ping, packet_loss)
     local in_car = IS_PED_IN_ANY_VEHICLE(players.user_ped(), false)
-    local speed_vector =
-        GET_ENTITY_SPEED_VECTOR(entities.get_user_vehicle_as_handle(true), true)
+    local speed_vector = GET_ENTITY_SPEED_VECTOR(entities.get_user_vehicle_as_handle(true), true)
     local vx = speed_vector.x
     local vy = speed_vector.y
     local vz = speed_vector.z
+    local drift_indicator_radius = 0.003
+    local drift_indicator_position = { x = 0.5015, y = 0.83 }
+
     if vy < 0 then
         gear = "R"
-    end
-    if math.floor(vy) == 0 and in_car then
+    elseif math.floor(vy) == 0 and in_car then
         gear = "N"
-    end
-    if math.floor(vy) == 0 and not in_car then
+    elseif math.floor(vy) == 0 and not in_car then
         gear = "P"
     end
-    directx.draw_text_client(0.50, 0.9, tostring(gear),
-                             ALIGN_CENTRE, 1.0,
-    colors.yellow, true)
+
+    directx.draw_text_client(0.50, 0.9, tostring(gear), ALIGN_CENTRE, 1.0, colors.yellow, true)
     directx.draw_circle(0.5015, 0.9015, 0.02, colors.smoke)
+
     directx.draw_text(0.473, 0.96, "Performance", ALIGN_CENTRE, 0.5, colors.yellow, true)
     directx.draw_text(0.528, 0.96, "Cosmetic", ALIGN_CENTRE, 0.5, colors.yellow, true)
-    draw_segmented_vertical_bar(engine_health, 1000, 0.47, 0.85,
-                                0.008, 0.1, colors.red, colors.green, colors.smoke, 10, 0.002)
-    draw_segmented_vertical_bar(body_health, 1000, 0.525, 0.85, 0.008,
-                                0.1, colors.red, colors.green, colors.smoke, 10, 0.002)
+    draw_segmented_vertical_bar(engine_health, 1000, 0.47, 0.85, 0.008, 0.1, colors.red, colors.green, colors.smoke, 10, 0.002)
+    draw_segmented_vertical_bar(body_health, 1000, 0.525, 0.85, 0.008, 0.1, colors.red, colors.green, colors.smoke, 10, 0.002)
 
+    local is_drifting = prev_is_drifting
+
+    local indicator_color = is_drifting and colors.red or colors.yellow
+    directx.draw_circle(drift_indicator_position.x, drift_indicator_position.y, drift_indicator_radius, indicator_color)
+
+    directx.draw_text_client(drift_indicator_position.x, drift_indicator_position.y + 0.02, "Drift", ALIGN_CENTRE, 0.5, colors.yellow, true)
 end
 
-menu.toggle_loop(vscript, "Dash", { "enablevdash" },
-                 "Speedometer/Tachometer &c.", function()
-                                                   local car_ptr = entities.get_user_vehicle_as_pointer(true)
-                                                   if car_ptr ~= 0 then
-                                                       local car = entities.pointer_to_handle(car_ptr)
-                                                       local speed = math.ceil(GET_ENTITY_SPEED(car) * 3.6)
-                                                       local max_speed = menu.get_value(menu.ref_by_path("Vehicle>Movement>Speed Limit (KMH)"))
-                                                       local rpm = math.ceil(_GET_VEHICLE_CURRENT_REV_RATIO(car) * 100)
-                                                       local gear = _GET_VEHICLE_CURRENT_DRIVE_GEAR(car)
-                                                       local engine_health = GET_VEHICLE_ENGINE_HEALTH(car)
-                                                       local body_health = GET_VEHICLE_BODY_HEALTH(car)
+menu.toggle_loop(vscript, "Dash", { "venabledash" }, "Speedometer/Tachometer &c.", function()
+    local car_ptr = entities.get_user_vehicle_as_pointer(true)
+    if car_ptr ~= 0 then
+        local car = entities.pointer_to_handle(car_ptr)
+        local speed = math.ceil(GET_ENTITY_SPEED(car) * 3.6)
+        local max_speed = menu.get_value(menu.ref_by_path("Vehicle>Movement>Speed Limit (KMH)"))
+        local rpm = math.ceil(_GET_VEHICLE_CURRENT_REV_RATIO(car) * 100)
+        local gear = _GET_VEHICLE_CURRENT_DRIVE_GEAR(car)
+        local engine_health = GET_VEHICLE_ENGINE_HEALTH(car)
+        local body_health = GET_VEHICLE_BODY_HEALTH(car)
 
-                                                       draw_gauge_background()
-                                                       draw_gauge_speed(0.4, 1.0, speed, max_speed)
-                                                       draw_gauge_rpm(0.6, 1.025, rpm, 100)
-                                                       draw_hud_extra(engine_health, body_health, gear)
-        --draw_gauge_foreground()
-                                                   end
+        draw_gauge_background()
+        draw_gauge_speed(0.4, 1.0, speed, max_speed)
+        draw_gauge_rpm(0.6, 1.025, rpm, 100)
+        draw_hud_extra(engine_health, body_health, gear)
+        get_drift()
+    end
 end)
 
+
 -- Toggle between 55 and 70 degree FoV
-menu.toggle(vscript, "Wide View", { "wideview" }, "Increase the field of view.",
+menu.toggle(vscript, "Wide View", { "vwideview" }, "Increase the field of view.",
             function(on)
                 set_FoV(on)
             end)
 
 
 -- Toggle the HUD
-menu.toggle(vscript, "Disable HUD", { "disablehud" }, "Turn off the HUD.",
+menu.toggle(vscript, "Disable HUD", { "vdisablehud" }, "Turn off the HUD.",
             function(is_enabled)
                 toggle_HUD(not is_enabled)
             end)
 
 
 -- Toggle the radar
-menu.toggle(vscript, "Disable Radar", { "disableradar" }, "Turn off the radar.",
+menu.toggle(vscript, "Disable Radar", { "vdisableradar" }, "Turn off the radar.",
             function(is_enabled)
                 toggle_radar(is_enabled)
             end)
 
 -- Toggle menu item for radar zoom
-menu.toggle_loop(vscript, "Better Radar", { "betterradar" }, "The coverage of big map at the size of little map.",
+menu.toggle_loop(vscript, "Better Radar", { "vbetterradar" }, "The coverage of big map at the size of little map.",
                  function(on)
                      better_radar_enabled = on
                      enforce_radar_zoom()
                  end)
 
 -- Mute the sirens, keep the lights
-menu.toggle(vscript, "Better Bootlicker", { "betterbootlicker" }, "Disable the annoying sirens in cop cars.",
+menu.toggle(vscript, "Better Bootlicker", { "vbetterbootlicker" }, "Disable the annoying sirens in cop cars.",
             function(on)
                 toggle_muted_sirens(on)
             end)
 
 -- Disable cover
-menu.toggle(vscript, "Disable Cover", { "disablecover" }, "Disable cover (for controller players)",
+menu.toggle(vscript, "Disable Cover", { "vdisablecover" }, "Disable cover (for controller players)",
             function(on)
                 toggle_cover(not on)
             end)
 
 
 -- Show FPS bar
-menu.toggle_loop(vscript, "Show FPS Bar", {""},
+menu.toggle_loop(vscript, "Show FPS Bar", {"vfpsbar"},
                  "",
                  function()
                      local gauge_length = 0.1
