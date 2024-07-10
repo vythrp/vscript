@@ -7,16 +7,17 @@ local wide_view = 70
 local narrow_view = 55
 local better_radar_enabled = false
 local prev_is_drifting = false
-local lateral_speed_threshold = 7.0
+local lateral_speed_threshold = 3.0
 local history_size = 20
-local vx_history = {}
 local not_drifting_delay_frames = 15
+local vx_history = {}
 local frames_not_drifting = 0
 local is_drifting = false
 local drift_start_time = 0
 local current_drift_score = 0
 local highest_drift_score = 0
 hud_opacity_factor = 255
+
 
 menu.trigger_commands("sleekminimap on")
 
@@ -81,6 +82,13 @@ end
 
 update_colors()
 
+menu.slider(vscript, "Dash Opacity", {}, "Set the dash opacity.", 0,
+            255, hud_opacity_factor, 1,
+            function(value)
+                hud_opacity_factor = value
+                update_colors()
+end)
+
 local function bezier_quadratic(p0, p1, p2, t)
     local u = 1 - t
     local tt = t * t
@@ -100,12 +108,6 @@ local function draw_quadratic_bezier_curve(p0, p1, p2, segments, color)
     end
 end
 
-menu.slider(vscript, "Dash Opacity", {}, "Set the dash opacity.", 0,
-            255, hud_opacity_factor, 1,
-            function(value)
-                hud_opacity_factor = value
-                update_colors()
-end)
 
 local function set_FoV(is_wide)
     SET_GAMEPLAY_CAM_RELATIVE_HEADING(0.0)
@@ -401,6 +403,47 @@ local function manage_drift_particle_fx(is_drifting)
     end
 end
 
+
+local drift_difficulty_levels = {
+    easy = 3.0,
+    normal = 5.0,
+    hard = 7.0
+}
+
+local current_drift_difficulty = drift_difficulty_levels.normal
+
+local easy_toggle, normal_toggle, hard_toggle
+
+local function set_easy()
+    current_drift_difficulty = drift_difficulty_levels.easy
+    menu.set_value(normal_toggle, false)
+    menu.set_value(hard_toggle, false)
+end
+
+local function set_normal()
+    current_drift_difficulty = drift_difficulty_levels.normal
+    menu.set_value(easy_toggle, false)
+    menu.set_value(hard_toggle, false)
+end
+
+local function set_hard()
+    current_drift_difficulty = drift_difficulty_levels.hard
+    menu.set_value(easy_toggle, false)
+    menu.set_value(normal_toggle, false)
+end
+
+easy_toggle = menu.toggle(vscript, "Drift Difficulty: Easy", {}, "", function(state)
+    if state then set_easy() end
+end)
+
+normal_toggle = menu.toggle(vscript, "Drift Difficulty: Normal", {}, "", function(state)
+    if state then set_normal() end
+end, true)
+
+hard_toggle = menu.toggle(vscript, "Drift Difficulty: Hard", {}, "", function(state)
+    if state then set_hard() end
+end)
+
 local function get_drift()
     local car = entities.get_user_vehicle_as_handle(true)
 
@@ -414,7 +457,7 @@ local function get_drift()
 
     local avg_vx = calculate_average_vx()
 
-    local is_drifting = math.abs(avg_vx) > lateral_speed_threshold and math.sqrt(forward_x * forward_x + forward_y * forward_y) > 0.1
+    local is_drifting = math.abs(avg_vx) > current_drift_difficulty and math.sqrt(forward_x * forward_x + forward_y * forward_y) > 0.1
 
     if is_drifting and not prev_is_drifting then
         drift_start_time = util.current_unix_time_seconds()
@@ -423,7 +466,7 @@ local function get_drift()
     if is_drifting then
         prev_is_drifting = true
         frames_not_drifting = 0
-    elseif math.abs(avg_vx) <= lateral_speed_threshold / 2 then
+    elseif math.abs(avg_vx) <= current_drift_difficulty / 2 then
         frames_not_drifting = frames_not_drifting + 1
         if frames_not_drifting >= not_drifting_delay_frames then
             prev_is_drifting = false
@@ -529,7 +572,6 @@ menu.toggle_loop(vscript, "Dash", { "venabledash" }, "Speedometer/Tachometer &c.
         draw_hud_extra(engine_health, body_health, gear)
     end
 end)
-
 
 -- Toggle between 55 and 70 degree FoV
 menu.toggle(vscript, "Wide View", { "vwideview" }, "Increase the field of view.",
