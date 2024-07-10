@@ -1,3 +1,15 @@
+-- Thanks Hexa for the sweet updater
+local auto_update_config = {
+    source_url="https://raw.githubusercontent.com/vythrp/vscript/main/vscript.pluto",
+    script_relpath=SCRIPT_RELPATH,
+}
+
+util.ensure_package_is_installed('lua/auto-updater')
+local auto_updater = require('auto-updater')
+if auto_updater == true and not is_from_repository then
+    auto_updater.run_auto_update(auto_update_config)
+end
+
 util.require_natives("3095a.g")
 
 local vscript = menu.my_root()
