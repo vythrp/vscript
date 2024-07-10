@@ -691,5 +691,10 @@ menu.toggle_loop(vscript, "Show FPS Bar", {"vfpsbar"},
                      local y = 0.99
                      draw_fps_bar(x, y, gauge_length, gauge_height)
                  end)
-
+menu.my_root():action("Check for Updates :)", {}, "The script will automatically check for updates at most daily, but you can manually check using this option anytime.", function()
+    auto_update_config.check_interval = 0
+    if auto_updater.run_auto_update(auto_update_config) then
+        util.toast("No updates found")
+    end
+end)
 util.keep_running()
