@@ -12,6 +12,10 @@ local history_size = 20
 local vx_history = {}
 local not_drifting_delay_frames = 15
 local frames_not_drifting = 0
+local is_drifting = false
+local drift_start_time = 0
+local current_drift_score = 0
+local highest_drift_score = 0
 hud_opacity_factor = 255
 
 menu.trigger_commands("sleekminimap on")
@@ -189,7 +193,7 @@ local function draw_gauge_background()
     local triangle_color = colors.black
     local height = triangle_side_length * math.sqrt(3) / 2
     local mid_center_x = 0.5
-    local center_y = 0.93
+    local center_y = 0.92
     local left_center_x = mid_center_x - triangle_side_length / 2
     local right_center_x = mid_center_x + triangle_side_length / 2
     local triangle_vertices = {
@@ -357,7 +361,6 @@ local function draw_segmented_vertical_bar(value, max_value, x, y,
     end
 end
 
-
 local function update_vx_history(vx)
     table.insert(vx_history, vx)
     if #vx_history > history_size then
@@ -371,6 +374,31 @@ local function calculate_average_vx()
         sum = sum + v
     end
     return sum / #vx_history
+end
+
+local function manage_drift_particle_fx(is_drifting)
+    if is_drifting then
+    local car = entities.get_user_vehicle_as_handle(true)
+    USE_PARTICLE_FX_ASSET("ent_amb_fbi_fire_lg")
+    START_NETWORKED_PARTICLE_FX_LOOPED_ON_ENTITY(
+        "ent_amb_fbi_fire_lg",
+        car,
+        0.5,
+        0.5,
+        0.5,
+        0.0,
+        0.0,
+        0.0,
+        10.0,
+        true,
+        true,
+        false,
+        255,
+        255,
+        255,
+        255
+    )
+    end
 end
 
 local function get_drift()
@@ -388,6 +416,10 @@ local function get_drift()
 
     local is_drifting = math.abs(avg_vx) > lateral_speed_threshold and math.sqrt(forward_x * forward_x + forward_y * forward_y) > 0.1
 
+    if is_drifting and not prev_is_drifting then
+        drift_start_time = util.current_unix_time_seconds()
+    end
+
     if is_drifting then
         prev_is_drifting = true
         frames_not_drifting = 0
@@ -401,9 +433,45 @@ local function get_drift()
     end
 end
 
+local function update_drift_score()
+    local car = entities.get_user_vehicle_as_handle(true)
+    if prev_is_drifting then
+        local current_time = util.current_unix_time_seconds()
+        local drift_duration = current_time - drift_start_time
+
+        local base_score = math.log(math.floor(drift_duration))
+
+        local speed_vector = GET_ENTITY_SPEED_VECTOR(car, true)
+        local vx = speed_vector.x
+
+        if vx > 1.5 * lateral_speed_threshold then
+            base_score = base_score * 1.5
+        elseif vx > 2.0 * lateral_speed_threshold then
+            base_score = base_score * 2.0
+        end
+
+        if drift_duration > 10 then
+            base_score = base_score * 10
+        end
+
+        if base_score > 0 then
+            current_drift_score = current_drift_score + base_score
+        end
+
+        if current_drift_score > highest_drift_score then
+            highest_drift_score = current_drift_score
+        end
+    end
+
+    if not prev_is_drifting then
+        current_drift_score = 0
+    end
+end
+
 local function draw_hud_extra(engine_health, body_health, gear, ping, packet_loss)
     local in_car = IS_PED_IN_ANY_VEHICLE(players.user_ped(), false)
-    local speed_vector = GET_ENTITY_SPEED_VECTOR(entities.get_user_vehicle_as_handle(true), true)
+    local car = entities.get_user_vehicle_as_handle(true)
+    local speed_vector = GET_ENTITY_SPEED_VECTOR(car, true)
     local vx = speed_vector.x
     local vy = speed_vector.y
     local vz = speed_vector.z
@@ -427,11 +495,20 @@ local function draw_hud_extra(engine_health, body_health, gear, ping, packet_los
     draw_segmented_vertical_bar(body_health, 1000, 0.525, 0.85, 0.008, 0.1, colors.red, colors.green, colors.smoke, 10, 0.002)
 
     local is_drifting = prev_is_drifting
+    update_drift_score()
 
-    local indicator_color = is_drifting and colors.red or colors.yellow
+    local indicator_color = is_drifting and colors.red or colors.smoke
     directx.draw_circle(drift_indicator_position.x, drift_indicator_position.y, drift_indicator_radius, indicator_color)
-
     directx.draw_text_client(drift_indicator_position.x, drift_indicator_position.y + 0.02, "Drift", ALIGN_CENTRE, 0.5, colors.yellow, true)
+
+    local indicator_color = is_drifting and colors.red or colors.smoke
+    directx.draw_circle(drift_indicator_position.x, drift_indicator_position.y, drift_indicator_radius, indicator_color)
+    directx.draw_text_client(drift_indicator_position.x, drift_indicator_position.y + 0.02, "Drift", ALIGN_CENTRE, 0.5, colors.yellow, true)
+
+directx.draw_text_client(0.45, 0.822, string.format("Current Score: %d", math.floor(current_drift_score)), ALIGN_CENTRE, 0.5, colors.yellow, true)
+directx.draw_text_client(0.55, 0.822, string.format("Highest Score: %d", math.floor(highest_drift_score)), ALIGN_CENTRE, 0.5, colors.yellow, true)
+
+    -- manage_drift_particle_fx(is_drifting)
 end
 
 menu.toggle_loop(vscript, "Dash", { "venabledash" }, "Speedometer/Tachometer &c.", function()
@@ -448,8 +525,8 @@ menu.toggle_loop(vscript, "Dash", { "venabledash" }, "Speedometer/Tachometer &c.
         draw_gauge_background()
         draw_gauge_speed(0.4, 1.0, speed, max_speed)
         draw_gauge_rpm(0.6, 1.025, rpm, 100)
-        draw_hud_extra(engine_health, body_health, gear)
         get_drift()
+        draw_hud_extra(engine_health, body_health, gear)
     end
 end)
 
