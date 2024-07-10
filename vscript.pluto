@@ -7,13 +7,15 @@ local wide_view = 70
 local narrow_view = 55
 local better_radar_enabled = false
 local prev_is_drifting = false
-local lateral_speed_threshold = 3.0
-local history_size = 20
+local history_size = 10
 local not_drifting_delay_frames = 15
 local vx_history = {}
+local vy_history = {}
 local frames_not_drifting = 0
 local is_drifting = false
+local drift_angle = 0
 local drift_start_time = 0
+local min_drift_speed = 25
 local current_drift_score = 0
 local highest_drift_score = 0
 hud_opacity_factor = 255
@@ -64,7 +66,7 @@ local function update_colors()
         ["r"] = 189.0/255,
         ["g"] = 0.0/255,
         ["b"] = 26.0/255,
-        ["a"] = 0.8 * (hud_opacity_factor / 255)
+        ["a"] = 0.6 * (hud_opacity_factor / 255)
     }
     colors.transparent = {
         ["r"] = 0.0,
@@ -73,10 +75,10 @@ local function update_colors()
         ["a"] = 0.0
     }
     colors.smoke = {
-        ["r"] = 0.1,
-        ["g"] = 0.1,
-        ["b"] = 0.1,
-        ["a"] = 0.3 * (hud_opacity_factor / 255)
+        ["r"] = 0.2,
+        ["g"] = 0.2,
+        ["b"] = 0.2,
+        ["a"] = 0.1 * (hud_opacity_factor / 255)
     }
 end
 
@@ -158,10 +160,61 @@ local function get_fps_color(fps)
     end
 end
 
+local segment_map = {
+    ["0"] = {1, 1, 1, 1, 1, 1, 0, 0},
+    ["1"] = {0, 1, 1, 0, 0, 0, 0, 0},
+    ["2"] = {1, 1, 0, 1, 1, 0, 1, 0},
+    ["3"] = {1, 1, 1, 1, 0, 0, 1, 0},
+    ["4"] = {0, 1, 1, 0, 0, 1, 1, 0},
+    ["5"] = {1, 0, 1, 1, 0, 1, 1, 0},
+    ["6"] = {1, 0, 1, 1, 1, 1, 1, 0},
+    ["7"] = {1, 1, 1, 0, 0, 0, 0, 0},
+    ["8"] = {1, 1, 1, 1, 1, 1, 1, 0},
+    ["9"] = {1, 1, 1, 1, 0, 1, 1, 0},
+    ["P"] = {1, 1, 0, 0, 1, 1, 1, 0},
+    ["R"] = {1, 1, 1, 0, 1, 1, 1, 0},
+}
+
+local function draw_segment(x, y, w, h, active, color)
+    if active == 1 then
+        directx.draw_rect(x, y, w, h, color)
+    end
+end
+
+local function draw_char(char, x, y, scale, color)
+    local segments = segment_map[char]
+    local w, h = 0.1 * scale, 0.02 * scale
+
+    -- Top segment
+    draw_segment(x, y, w, h, segments[1], color)
+    -- Top-right segment
+    draw_segment(x + w - h, y + h, h, w - h, segments[2], color)
+    -- Bottom-right segment
+    draw_segment(x + w - h, y + 2 * h + w - h, h, w - h, segments[3], color)
+    -- Bottom segment
+    draw_segment(x, y + 2 * (w - h) + 2 * h, w, h, segments[4], color)
+    -- Bottom-left segment
+    draw_segment(x - h, y + 2 * h + w - h, h, w - h, segments[5], color)
+    -- Top-left segment
+    draw_segment(x - h, y + h, h, w - h, segments[6], color)
+    -- Middle segment
+    draw_segment(x, y + h + w - h, w, h, segments[7], color)
+    -- Extra middle segment
+    draw_segment(x + w / 2 - h / 2, y + h + w - h, h, w - h, segments[8], color)
+end
+
+local function draw_text(text, x, y, scale, color)
+    local spacing = 0.15 * scale
+    for i = 1, #text do
+        local char = text:sub(i, i)
+        draw_char(char, x + (i - 1) * spacing, y, scale, color)
+    end
+end
+
 local function draw_fps(x, y)
     local fps = util.get_tps()
     local color = get_fps_color(fps)
-    directx.draw_text_client(x, y, tostring(fps) .. " FPS", ALIGN_LEFT, 1.0, color, false)
+    directx.draw_text(x, y, tostring(fps) .. " FPS", ALIGN_LEFT, 1.0, color, false)
 end
 
 local function draw_fps_bar(x, y, width, height)
@@ -169,12 +222,12 @@ local function draw_fps_bar(x, y, width, height)
     local fps = math.min(math.floor(util.get_tps()), max_fps)
     local bar_width = (fps / max_fps) * width
     local color = get_fps_color(fps)
-    directx.draw_rect_client(x, y, bar_width, height, color)
+    directx.draw_rect(x, y, bar_width, height, color)
 end
 
 
 function draw_pulsing_filled_rectangle(x, y, width, height, color, pulse_speed, time)
-    directx.draw_rect_client(x, y, width, height, pulsing_color)
+    directx.draw_rect(x, y, width, height, pulsing_color)
 end
 
 local function interpolate_color(color1, color2, factor)
@@ -295,20 +348,23 @@ local function draw_gauge_speed(pos_x, pos_y, value, max_value)
     draw_segment_bar_speed(pos_x, pos_y, bar_width, bar_height, segments, active_segments)
 
     local num_pos_y = pos_y + bar_height - 0.2
-    draw_numeric_display(value, pos_x, num_pos_y, 1.0, colors.yellow)
+    --draw_numeric_display(value, pos_x, num_pos_y, 1.0, colors.yellow)
+    local padded_value = string.format("%03d", value)
+    draw_text(padded_value, pos_x - 0.02,
+              num_pos_y - 0.01, 0.09, colors.red)
     directx.draw_text(pos_x, num_pos_y + 0.02, "KPH", ALIGN_CENTRE, 0.6, colors.yellow, true)
 end
 
 local function draw_segment_bar_rpm(pos_x, pos_y, width, height, segments, active_segments)
     local segment_width = (width / segments) * 1.2
-    local curve_intensity = 0.12
+    local curve_intensity = 0.11
     local shift_intensity = 0.05
     local pulse_speed = 10
 
     for i = 0, segments - 1 do
         local x = pos_x + (i * segment_width) - (segment_width * 1.5)
         local y_offset = - math.cos((i / segments) * math.pi) * curve_intensity - 0.1
-        local segment_height = - height * (1 + (i / segments) * 0.8)
+        local segment_height = - height * (1 + (i / segments) * 0.5)
         local y_shift = - math.cos((i / segments) * math.pi) * shift_intensity
 
         if i < active_segments then
@@ -338,7 +394,10 @@ local function draw_gauge_rpm(pos_x, pos_y, value, max_value)
 
     draw_segment_bar_rpm(pos_x, pos_y, bar_width, bar_height, segments, active_segments)
     local num_pos_y = pos_y + bar_height - 0.15
-    draw_numeric_display(value, pos_x, num_pos_y, 1.0, colors.yellow)
+    --draw_numeric_display(value, pos_x, num_pos_y, 1.0, colors.yellow)
+    local padded_value = string.format("%03d", value)
+    draw_text(padded_value, pos_x - 0.015,
+              num_pos_y - 0.01, 0.09, colors.red)
     directx.draw_text(pos_x, num_pos_y + 0.02, "% REV", ALIGN_CENTRE, 0.6, colors.yellow, true)
 end
 
@@ -363,51 +422,25 @@ local function draw_segmented_vertical_bar(value, max_value, x, y,
     end
 end
 
-local function update_vx_history(vx)
-    table.insert(vx_history, vx)
-    if #vx_history > history_size then
-        table.remove(vx_history, 1)
+local function update_v_history(history, v)
+    table.insert(history, v)
+    if #history > history_size then
+        table.remove(history, 1)
     end
 end
 
-local function calculate_average_vx()
+local function calculate_average(history)
     local sum = 0
-    for _, v in ipairs(vx_history) do
+    for _, v in ipairs(history) do
         sum = sum + v
     end
-    return sum / #vx_history
+    return sum / #history
 end
-
-local function manage_drift_particle_fx(is_drifting)
-    if is_drifting then
-    local car = entities.get_user_vehicle_as_handle(true)
-    USE_PARTICLE_FX_ASSET("ent_amb_fbi_fire_lg")
-    START_NETWORKED_PARTICLE_FX_LOOPED_ON_ENTITY(
-        "ent_amb_fbi_fire_lg",
-        car,
-        0.5,
-        0.5,
-        0.5,
-        0.0,
-        0.0,
-        0.0,
-        10.0,
-        true,
-        true,
-        false,
-        255,
-        255,
-        255,
-        255
-    )
-    end
-end
-
 
 local drift_difficulty_levels = {
-    easy = 3.0,
-    normal = 5.0,
-    hard = 7.0
+    easy = 20.0,
+    normal = 30.0,
+    hard = 45.0
 }
 
 local current_drift_difficulty = drift_difficulty_levels.normal
@@ -444,20 +477,30 @@ hard_toggle = menu.toggle(vscript, "Drift Difficulty: Hard", {}, "", function(st
     if state then set_hard() end
 end)
 
+local function get_drift_angle(vx, vy)
+    local theta = math.atan2(vx, vy)
+    return math.abs(math.floor(math.deg(theta)))
+end
+
 local function get_drift()
     local car = entities.get_user_vehicle_as_handle(true)
 
-    local forward_x = GET_ENTITY_FORWARD_X(car)
-    local forward_y = GET_ENTITY_FORWARD_Y(car)
-
     local speed_vector = GET_ENTITY_SPEED_VECTOR(car, true)
+    local speed = math.floor(GET_ENTITY_SPEED(car) * 3.6)
     local vx = speed_vector.x
+    local vy = speed_vector.y
 
-    update_vx_history(vx)
+    update_v_history(vx_history, vx)
+    update_v_history(vy_history, vy)
 
-    local avg_vx = calculate_average_vx()
+    local avg_vx = calculate_average(vx_history)
+    local avg_vy = calculate_average(vy_history)
 
-    local is_drifting = math.abs(avg_vx) > current_drift_difficulty and math.sqrt(forward_x * forward_x + forward_y * forward_y) > 0.1
+    local drift_angle = get_drift_angle(avg_vx, avg_vy)
+    if min_drift_speed > speed then
+        drift_angle = 0
+    end
+    local is_drifting = drift_angle > current_drift_difficulty
 
     if is_drifting and not prev_is_drifting then
         drift_start_time = util.current_unix_time_seconds()
@@ -466,7 +509,7 @@ local function get_drift()
     if is_drifting then
         prev_is_drifting = true
         frames_not_drifting = 0
-    elseif math.abs(avg_vx) <= current_drift_difficulty / 2 then
+    elseif drift_angle <= current_drift_difficulty / 3 then
         frames_not_drifting = frames_not_drifting + 1
         if frames_not_drifting >= not_drifting_delay_frames then
             prev_is_drifting = false
@@ -482,19 +525,30 @@ local function update_drift_score()
         local current_time = util.current_unix_time_seconds()
         local drift_duration = current_time - drift_start_time
 
-        local base_score = math.log(math.floor(drift_duration))
-
         local speed_vector = GET_ENTITY_SPEED_VECTOR(car, true)
         local vx = speed_vector.x
+        local vy = speed_vector.y
 
-        if vx > 1.5 * lateral_speed_threshold then
-            base_score = base_score * 1.5
-        elseif vx > 2.0 * lateral_speed_threshold then
-            base_score = base_score * 2.0
+        local drift_angle = get_drift_angle(vx, vy)
+        local base_score = math.log(math.floor(drift_duration * drift_angle))
+        base_score = base_score / 10
+
+        local drift_multiplier = 1.0
+
+        if vx > 1.5 * drift_angle then
+            drift_multiplier = 1.5
+            base_score = base_score * drift_multiplier
+            util.toast("Drift Multiplier: " .. drift_multiplier)
+        elseif vx > 2.0 * drift_angle then
+            drift_multiplier = 2.0
+            base_score = base_score * drift_multiplier
+            util.toast("Drift Multiplier: " .. drift_multiplier)
         end
 
         if drift_duration > 10 then
-            base_score = base_score * 10
+            drift_multiplier = 10 * drift_multiplier
+            base_score = base_score * drift_multiplier
+            util.toast("Drift Multiplier: " .. drift_multiplier)
         end
 
         if base_score > 0 then
@@ -504,14 +558,12 @@ local function update_drift_score()
         if current_drift_score > highest_drift_score then
             highest_drift_score = current_drift_score
         end
-    end
-
-    if not prev_is_drifting then
+    else
         current_drift_score = 0
     end
 end
 
-local function draw_hud_extra(engine_health, body_health, gear, ping, packet_loss)
+local function draw_hud_extra(vehicle_health, gear, ping, packet_loss)
     local in_car = IS_PED_IN_ANY_VEHICLE(players.user_ped(), false)
     local car = entities.get_user_vehicle_as_handle(true)
     local speed_vector = GET_ENTITY_SPEED_VECTOR(car, true)
@@ -524,34 +576,39 @@ local function draw_hud_extra(engine_health, body_health, gear, ping, packet_los
     if vy < 0 then
         gear = "R"
     elseif math.floor(vy) == 0 and in_car then
-        gear = "N"
+        gear = "0"
     elseif math.floor(vy) == 0 and not in_car then
         gear = "P"
     end
+    local damage = vehicle_health
 
-    directx.draw_text_client(0.50, 0.9, tostring(gear), ALIGN_CENTRE, 1.0, colors.yellow, true)
+    --directx.draw_text(0.50, 0.9, tostring(gear), ALIGN_CENTRE, 1.0, colors.yellow, true)
+    draw_text(tostring(gear), 0.495, 0.88, 0.17, colors.red)
     directx.draw_circle(0.5015, 0.9015, 0.02, colors.smoke)
 
-    directx.draw_text(0.473, 0.96, "Performance", ALIGN_CENTRE, 0.5, colors.yellow, true)
-    directx.draw_text(0.528, 0.96, "Cosmetic", ALIGN_CENTRE, 0.5, colors.yellow, true)
-    draw_segmented_vertical_bar(engine_health, 1000, 0.47, 0.85, 0.008, 0.1, colors.red, colors.green, colors.smoke, 10, 0.002)
-    draw_segmented_vertical_bar(body_health, 1000, 0.525, 0.85, 0.008, 0.1, colors.red, colors.green, colors.smoke, 10, 0.002)
+    directx.draw_text(0.45, 0.96, "Damage", ALIGN_CENTRE, 0.5, colors.yellow, true)
+    draw_segmented_vertical_bar(vehicle_health, 1.0, 0.45, 0.85, 0.003, 0.1, colors.red, colors.green, colors.smoke, 10, 0.002)
 
     local is_drifting = prev_is_drifting
     update_drift_score()
 
-    local indicator_color = is_drifting and colors.red or colors.smoke
+    local indicator_color = is_drifting and colors.green or colors.smoke
     directx.draw_circle(drift_indicator_position.x, drift_indicator_position.y, drift_indicator_radius, indicator_color)
-    directx.draw_text_client(drift_indicator_position.x, drift_indicator_position.y + 0.02, "Drift", ALIGN_CENTRE, 0.5, colors.yellow, true)
+    directx.draw_text(drift_indicator_position.x, drift_indicator_position.y + 0.02, "Drift", ALIGN_CENTRE, 0.5, colors.yellow, true)
 
-    local indicator_color = is_drifting and colors.red or colors.smoke
-    directx.draw_circle(drift_indicator_position.x, drift_indicator_position.y, drift_indicator_radius, indicator_color)
-    directx.draw_text_client(drift_indicator_position.x, drift_indicator_position.y + 0.02, "Drift", ALIGN_CENTRE, 0.5, colors.yellow, true)
+    directx.draw_text(0.45, 0.818, "Current Score:", ALIGN_CENTRE, 0.45, colors.yellow, true)
+    draw_text(tostring(math.floor(current_drift_score)), 0.427, 0.828, 0.05, colors.red)
+    directx.draw_text(0.55, 0.818, "Highest Score:", ALIGN_CENTRE, 0.45, colors.yellow, true)
+    draw_text(tostring(math.floor(highest_drift_score)), 0.527, 0.828, 0.05, colors.red)
 
-directx.draw_text_client(0.45, 0.822, string.format("Current Score: %d", math.floor(current_drift_score)), ALIGN_CENTRE, 0.5, colors.yellow, true)
-directx.draw_text_client(0.55, 0.822, string.format("Highest Score: %d", math.floor(highest_drift_score)), ALIGN_CENTRE, 0.5, colors.yellow, true)
+    drift_angle = get_drift_angle(vx, vy)
+    if drift_angle == 180 then
+        drift_angle = 0
+    end
 
-    -- manage_drift_particle_fx(is_drifting)
+    local padded_angle = string.format("%03d", drift_angle)
+    directx.draw_text(0.548, 0.92, "Angle", ALIGN_CENTRE, 0.5, colors.yellow, true)
+    draw_text(padded_angle, 0.538, 0.89, 0.07, colors.red)
 end
 
 menu.toggle_loop(vscript, "Dash", { "venabledash" }, "Speedometer/Tachometer &c.", function()
@@ -562,14 +619,13 @@ menu.toggle_loop(vscript, "Dash", { "venabledash" }, "Speedometer/Tachometer &c.
         local max_speed = menu.get_value(menu.ref_by_path("Vehicle>Movement>Speed Limit (KMH)"))
         local rpm = math.ceil(_GET_VEHICLE_CURRENT_REV_RATIO(car) * 100)
         local gear = _GET_VEHICLE_CURRENT_DRIVE_GEAR(car)
-        local engine_health = GET_VEHICLE_ENGINE_HEALTH(car)
-        local body_health = GET_VEHICLE_BODY_HEALTH(car)
+        local vehicle_health = GET_ENTITY_HEALTH(car) / GET_ENTITY_MAX_HEALTH(car)
 
         draw_gauge_background()
         draw_gauge_speed(0.4, 1.0, speed, max_speed)
         draw_gauge_rpm(0.6, 1.025, rpm, 100)
         get_drift()
-        draw_hud_extra(engine_health, body_health, gear)
+        draw_hud_extra(vehicle_health, gear)
     end
 end)
 
