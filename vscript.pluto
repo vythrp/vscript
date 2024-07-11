@@ -9,7 +9,6 @@ local auto_updater = require('auto-updater')
 if auto_updater == true and not is_from_repository then
     auto_updater.run_auto_update(auto_update_config)
 end
-
 util.require_natives("3095a.g")
 
 local vscript = menu.my_root()
@@ -30,8 +29,9 @@ local drift_start_time = 0
 local min_drift_speed = 25
 local current_drift_score = 0
 local highest_drift_score = 0
-hud_opacity_factor = 255
-
+local PI = math.pi
+local SQRT_3_2 = SQRT(3) / 2
+local hud_opacity_factor = 255
 
 menu.trigger_commands("sleekminimap on")
 
@@ -39,10 +39,11 @@ menu.trigger_commands("sleekminimap on")
 local colors = {}
 
 local function update_colors()
+    -- Adjusted to mimic C4 Corvette instrument cluster colors
     colors.black = {
-        ["r"] = 0.0,
-        ["g"] = 0.0,
-        ["b"] = 0.0,
+        ["r"] = 2/255,
+        ["g"] = 3/255,
+        ["b"] = 4/255,
         ["a"] = 0.8 * (hud_opacity_factor / 255)
     }
 
@@ -53,75 +54,185 @@ local function update_colors()
         ["a"] = 0.15 * (hud_opacity_factor / 255)
     }
 
-    colors.yellow = {
+    colors.bright_white = {
         ["r"] = 1.0,
-        ["g"] = 153.0/255,
-        ["b"] = 0.0,
-        ["a"] = 0.4 * (hud_opacity_factor / 255)
+        ["g"] = 1.0,
+        ["b"] = 1.0,
+        ["a"] = 1.0 * (hud_opacity_factor / 255)
     }
 
-    colors.green = {
-        ["r"] = 39.0/255,
-        ["g"] = 177.0/255,
-        ["b"] = 70.0/255,
-        ["a"] = 0.4 * (hud_opacity_factor / 255)
-    }
-
-    colors.magenta = {
-        ["r"] = 128.0/255,
-        ["g"] = 0.0/255,
-        ["b"] = 128.0/255,
+    colors.yellow = {
+        ["r"] = 253 / 255,
+        ["g"] = 249 / 255,
+        ["b"] = 51 / 255,
         ["a"] = 0.5 * (hud_opacity_factor / 255)
     }
 
-    colors.red = {
-        ["r"] = 189.0/255,
-        ["g"] = 0.0/255,
-        ["b"] = 26.0/255,
-        ["a"] = 0.6 * (hud_opacity_factor / 255)
+    colors.bright_yellow = {
+        ["r"] = 253 / 255,
+        ["g"] = 249 / 255,
+        ["b"] = 51 / 255,
+        ["a"] = 1.0 * (hud_opacity_factor / 255)
     }
+
+    colors.gold = {
+        ["r"] = 1.0,
+        ["g"] = 156/255,
+        ["b"] = 30/255,
+        ["a"] = 0.4 * (hud_opacity_factor / 255)
+    }
+
+
+    colors.bright_gold = {
+        ["r"] = 1.0,
+        ["g"] = 156/255,
+        ["b"] = 30/255,
+        ["a"] = 1.0 * (hud_opacity_factor / 255)
+    }
+
+    colors.green = {
+        ["r"] = 137/255,
+        ["g"] = 252/255,
+        ["b"] = 0/255,
+        ["a"] = 0.5 * (hud_opacity_factor / 255)
+    }
+
+    colors.bright_green = {
+        ["r"] = 137/255,
+        ["g"] = 252/255,
+        ["b"] = 0/255,
+        ["a"] = 1.0 * (hud_opacity_factor / 255)
+    }
+
+    colors.magenta = {
+        ["r"] = 209/255,
+        ["g"] = 29/255,
+        ["b"] = 136/255,
+        ["a"] = 0.5 * (hud_opacity_factor / 255)
+    }
+
+    colors.bright_magenta = {
+        ["r"] = 209/255,
+        ["g"] = 29/255,
+        ["b"] = 136/255,
+        ["a"] = 1.0 * (hud_opacity_factor / 255)
+    }
+
+    colors.purple = {
+        ["r"] = 169 / 255,
+        ["g"] = 0,
+        ["b"] = 59 / 255,
+        ["a"] = 0.4 * (hud_opacity_factor / 255)
+    }
+
+    colors.bright_purple = {
+        ["r"] = 169 / 255,
+        ["g"] = 0,
+        ["b"] = 59 / 255,
+        ["a"] = 1.0 * (hud_opacity_factor / 255)
+    }
+
+    colors.red = {
+        ["r"] = 255.0/255,
+        ["g"] = 51.0/255,
+        ["b"] = 102.0/255,
+        ["a"] = 0.2 * (hud_opacity_factor / 255)
+    }
+
+    colors.bright_red = {
+        ["r"] = 255.0/255,
+        ["g"] = 51.0/255,
+        ["b"] = 102.0/255,
+        ["a"] = 1.0 * (hud_opacity_factor / 255)
+    }
+
+    colors.orange_red = {
+        ["r"] = 223 / 255,
+        ["g"] = 98 / 255,
+        ["b"] = 101 / 255,
+        ["a"] = 0.4 * (hud_opacity_factor / 255)
+    }
+
+    colors.bright_orange_red = {
+        ["r"] = 223 / 255,
+        ["g"] = 98 / 255,
+        ["b"] = 101 / 255,
+        ["a"] = 1.0 * (hud_opacity_factor / 255)
+    }
+
+    colors.lime = {
+        ["r"] = 182 / 255,
+        ["g"] = 247 / 255,
+        ["b"] = 29 / 255,
+        ["a"] = 0.1 * (hud_opacity_factor / 255)
+    }
+
+    colors.bright_lime = {
+        ["r"] = 182 / 255,
+        ["g"] = 247 / 255,
+        ["b"] = 29 / 255,
+        ["a"] = 1.0 * (hud_opacity_factor / 255)
+    }
+
+    colors.sinopia = {
+        ["r"] = 218 / 255,
+        ["g"] = 27 / 255,
+        ["b"] = 0,
+        ["a"] = 0.5 * (hud_opacity_factor / 255)
+    }
+
+    colors.bright_sinopia = {
+        ["r"] = 218 / 255,
+        ["g"] = 27 / 255,
+        ["b"] = 0,
+        ["a"] = 1.0 * (hud_opacity_factor / 255)
+    }
+
+    colors.blue = {
+        ["r"] = 55.0/255,
+        ["g"] = 172.0/255,
+        ["b"] = 215.0/255,
+        ["a"] = 0.2 * (hud_opacity_factor / 255)
+    }
+
+    colors.bright_blue = {
+        ["r"] = 55.0/255,
+        ["g"] = 172.0/255,
+        ["b"] = 215.0/255,
+        ["a"] = 1.0 * (hud_opacity_factor / 255)
+    }
+
     colors.transparent = {
         ["r"] = 0.0,
         ["g"] = 0.0,
         ["b"] = 0.0,
         ["a"] = 0.0
     }
+
     colors.smoke = {
         ["r"] = 0.2,
         ["g"] = 0.2,
         ["b"] = 0.2,
-        ["a"] = 0.1 * (hud_opacity_factor / 255)
+        ["a"] = 0.3 * (hud_opacity_factor / 255)
     }
 end
 
-update_colors()
+util.execute_in_os_thread(update_colors)
 
 menu.slider(vscript, "Dash Opacity", {}, "Set the dash opacity.", 0,
             255, hud_opacity_factor, 1,
             function(value)
                 hud_opacity_factor = value
-                update_colors()
+                util.execute_in_os_thread(update_colors)
 end)
 
-local function bezier_quadratic(p0, p1, p2, t)
-    local u = 1 - t
-    local tt = t * t
-    local uu = u * u
-    local x = (uu * p0.x) + (2 * u * t * p1.x) + (tt * p2.x)
-    local y = (uu * p0.y) + (2 * u * t * p1.y) + (tt * p2.y)
-    return { x = x, y = y }
+local function radians_to_degrees(radians)
+    return radians * (180 / PI)
 end
 
-local function draw_quadratic_bezier_curve(p0, p1, p2, segments, color)
-    local last_point = p0
-    for i = 1, segments do
-        local t = i / segments
-        local point = bezier_quadratic(p0, p1, p2, t)
-        directx.draw_line(last_point.x, last_point.y, point.x, point.y, color)
-        last_point = point
-    end
+local function degrees_to_radians(degrees)
+    return degrees * (PI / 180)
 end
-
 
 local function set_FoV(is_wide)
     SET_GAMEPLAY_CAM_RELATIVE_HEADING(0.0)
@@ -164,11 +275,11 @@ end
 
 local function get_fps_color(fps)
     if fps >= 28 then
-        return colors.green
+        return colors.lime
     elseif fps >= 20 then
         return colors.yellow
     else
-        return colors.red
+        return colors.bright_red
     end
 end
 
@@ -190,36 +301,58 @@ local segment_map = {
 local function draw_segment(x, y, w, h, active, color)
     if active == 1 then
         directx.draw_rect(x, y, w, h, color)
+
+        directx.draw_line(x, y, x + w, y, colors.smoke) -- Top
+        directx.draw_line(x + w, y, x + w, y + h, colors.smoke) -- Right
+        directx.draw_line(x + w, y + h, x, y + h, colors.smoke) -- Bottom
+        directx.draw_line(x, y + h, x, y, colors.smoke) -- Left
     end
 end
 
 local function draw_char(char, x, y, scale, color)
     local segments = segment_map[char]
-    local w, h = 0.1 * scale, 0.02 * scale
+    local char_width, char_height = 0.1 * scale, 0.02 * scale
+
+    local box_padding = 0.02 * scale
+    local box_width = char_width + 2 * box_padding
+    local box_height = 14 * char_height
+
+    local box_x = x - box_padding - 0.5*box_padding
+    local box_y = y - box_padding - 0.5*box_padding
+
+    directx.draw_rect(box_x, box_y, box_width, box_height, colors.red)
+
+    directx.draw_line(box_x, box_y, box_x + box_width, box_y, colors.smoke) -- Top
+    directx.draw_line(box_x + box_width, box_y, box_x + box_width, box_y + box_height, colors.smoke) -- Right
+    directx.draw_line(box_x + box_width, box_y + box_height, box_x, box_y + box_height, colors.smoke) -- Bottom
+    directx.draw_line(box_x, box_y + box_height, box_x, box_y, colors.smoke) -- Left
 
     -- Top segment
-    draw_segment(x, y, w, h, segments[1], color)
+    draw_segment(x, y, char_width, char_height, segments[1], color)
     -- Top-right segment
-    draw_segment(x + w - h, y + h, h, w - h, segments[2], color)
+    draw_segment(x + char_width - char_height, y + char_height, char_height, char_width - char_height, segments[2], color)
     -- Bottom-right segment
-    draw_segment(x + w - h, y + 2 * h + w - h, h, w - h, segments[3], color)
+    draw_segment(x + char_width - char_height, y + 2 * char_height + char_width - char_height, char_height, char_width - char_height, segments[3], color)
     -- Bottom segment
-    draw_segment(x, y + 2 * (w - h) + 2 * h, w, h, segments[4], color)
+    draw_segment(x, y + 2 * (char_width - char_height) + 2 * char_height, char_width, char_height, segments[4], color)
     -- Bottom-left segment
-    draw_segment(x - h, y + 2 * h + w - h, h, w - h, segments[5], color)
+    draw_segment(x - char_height, y + 2 * char_height + char_width - char_height, char_height, char_width - char_height, segments[5], color)
     -- Top-left segment
-    draw_segment(x - h, y + h, h, w - h, segments[6], color)
+    draw_segment(x - char_height, y + char_height, char_height, char_width - char_height, segments[6], color)
     -- Middle segment
-    draw_segment(x, y + h + w - h, w, h, segments[7], color)
+    draw_segment(x, y + char_height + char_width - char_height, char_width, char_height, segments[7], color)
     -- Extra middle segment
-    draw_segment(x + w / 2 - h / 2, y + h + w - h, h, w - h, segments[8], color)
+    draw_segment(x + char_width / 2 - char_height / 2, y + char_height + char_width - char_height, char_height, char_width - char_height, segments[8], color)
 end
 
 local function draw_text(text, x, y, scale, color)
-    local spacing = 0.15 * scale
+    local char_width = 0.1 * scale
+    local char_height = 0.02 * scale
+    local spacing = 0.05 * scale
     for i = 1, #text do
         local char = text:sub(i, i)
-        draw_char(char, x + (i - 1) * spacing, y, scale, color)
+        local box_padding = 0.02 * scale
+        draw_char(char, x + (i - 1) * (char_width + spacing), y, scale, color)
     end
 end
 
@@ -231,7 +364,7 @@ end
 
 local function draw_fps_bar(x, y, width, height)
     local max_fps = 30
-    local fps = math.min(math.floor(util.get_tps()), max_fps)
+    local fps = math.min(FLOOR(util.get_tps()), max_fps)
     local bar_width = (fps / max_fps) * width
     local color = get_fps_color(fps)
     directx.draw_rect(x, y, bar_width, height, color)
@@ -252,29 +385,32 @@ local function interpolate_color(color1, color2, factor)
 end
 
 local function draw_gauge_background()
-    local radius = 0.32
     local pos_x = 0.5
     local pos_y = 1.35
-    local circle_colour = {r = 255/255, g = 153/255, b = 0/255, a = 0.02 * hud_opacity_factor / 255}
     local triangle_side_length = 0.27
     local triangle_color = colors.black
-    local height = triangle_side_length * math.sqrt(3) / 2
+    local border_color = colors.smoke
+    local height = triangle_side_length * SQRT_3_2
     local mid_center_x = 0.5
     local center_y = 0.92
     local left_center_x = mid_center_x - triangle_side_length / 2
     local right_center_x = mid_center_x + triangle_side_length / 2
+
     local triangle_vertices = {
         mid_center_x - triangle_side_length / 2, center_y - height / 2,
         mid_center_x + triangle_side_length / 2, center_y - height / 2,
         mid_center_x, center_y + height / 2
     }
+
     directx.draw_triangle(
         triangle_vertices[1], triangle_vertices[2],
         triangle_vertices[3], triangle_vertices[4],
         triangle_vertices[5], triangle_vertices[6],
         triangle_color
     )
-    local left_center_x = mid_center_x - triangle_side_length / 2
+
+    directx.draw_line(triangle_vertices[1], triangle_vertices[2], triangle_vertices[3], triangle_vertices[4], border_color)
+
     local inverted_triangle_vertices = {
         left_center_x + triangle_side_length / 2, center_y + height / 2,
         left_center_x - triangle_side_length / 2, center_y + height / 2,
@@ -288,8 +424,9 @@ local function draw_gauge_background()
         triangle_color
     )
 
-    local right_center_x = mid_center_x + triangle_side_length / 2
-    local inverted_triangle_vertices = {
+    directx.draw_line(inverted_triangle_vertices[3], inverted_triangle_vertices[4], inverted_triangle_vertices[5], inverted_triangle_vertices[6], border_color)
+
+    inverted_triangle_vertices = {
         right_center_x + triangle_side_length / 2, center_y + height / 2,
         right_center_x - triangle_side_length / 2, center_y + height / 2,
         right_center_x, center_y - height / 2
@@ -301,26 +438,8 @@ local function draw_gauge_background()
         inverted_triangle_vertices[5], inverted_triangle_vertices[6],
         triangle_color
     )
-    --directx.draw_circle(pos_x, pos_y, radius, circle_colour, 2)
-    --directx.draw_circle(pos_x, pos_y, radius, circle_colour, 3)
 
-    local shift_y = -0.14
-    local segments = 300
-    local p0 = { x = pos_x - 1.13 * radius , y = pos_y + shift_y}
-    local p1 = { x = pos_x, y = 0.5 + shift_y} -- Control point for the curve
-    local p2 = { x = pos_x + 1.13 * radius , y = pos_y + shift_y}
-
-    -- draw_quadratic_bezier_curve(p0, p1, p2, segments, {r=1.0,g=1.0,b=1.0,a=1.0})
-end
-
-local function draw_gauge_foreground()
-    local radius = 0.32
-    local pos_x = 0.5
-    local pos_y = 1.54
-    local color = {r = 1.0, g = 1.0, b = 1.0, a = 1.0}
-    color.a = 0.01
-    directx.draw_circle(pos_x, pos_y - 0.01, radius - 0.005, color, 2)
-    directx.draw_circle(pos_x, pos_y - 0.01, radius - 0.005, color, 3)
+    directx.draw_line(inverted_triangle_vertices[1], inverted_triangle_vertices[2], inverted_triangle_vertices[5], inverted_triangle_vertices[6], border_color)
 end
 
 local function draw_numeric_display(value, pos_x, pos_y, scale, color)
@@ -340,7 +459,7 @@ local function draw_segment_bar_speed(pos_x, pos_y, width, height, segments, act
         local x_shift = (i / segments)^3 * shift_intensity
         if i < active_segments then
             local color_factor = i / (segments - (segments * 0.05))
-            local segment_color = interpolate_color(colors.green, colors.red, color_factor)
+            local segment_color = interpolate_color(colors.bright_blue, colors.bright_lime, color_factor)
             directx.draw_rect(pos_x + x_offset - x_shift, y,
                               segment_width, segment_height - 0.005,
                               segment_color)
@@ -355,37 +474,39 @@ local function draw_gauge_speed(pos_x, pos_y, value, max_value)
     local bar_width = 0.1
     local bar_height = 0.1
     local segments = 20
-    local active_segments = math.ceil((value / max_value) * segments)
+    local active_segments = CEIL((value / max_value) * segments)
 
     draw_segment_bar_speed(pos_x, pos_y, bar_width, bar_height, segments, active_segments)
 
     local num_pos_y = pos_y + bar_height - 0.2
-    --draw_numeric_display(value, pos_x, num_pos_y, 1.0, colors.yellow)
     local padded_value = string.format("%03d", value)
-    draw_text(padded_value, pos_x - 0.02,
-              num_pos_y - 0.01, 0.09, colors.red)
-    directx.draw_text(pos_x, num_pos_y + 0.02, "KPH", ALIGN_CENTRE, 0.6, colors.yellow, true)
+    draw_text(padded_value, pos_x,
+              num_pos_y - 0.01, 0.13, colors.bright_red)
+    directx.draw_text(pos_x + 0.024, num_pos_y + 0.035, "KPH", ALIGN_CENTRE, 0.6, colors.bright_gold, true)
 end
 
 local function draw_segment_bar_rpm(pos_x, pos_y, width, height, segments, active_segments)
-    local segment_width = (width / segments) * 1.2
-    local curve_intensity = 0.11
-    local shift_intensity = 0.05
+    local segment_width = (width / segments) * 1.25
+    local curve_intensity = 0.12
+    local shift_intensity = 0.06
     local pulse_speed = 10
 
     for i = 0, segments - 1 do
         local x = pos_x + (i * segment_width) - (segment_width * 1.5)
-        local y_offset = - math.cos((i / segments) * math.pi) * curve_intensity - 0.1
-        local segment_height = - height * (1 + (i / segments) * 0.5)
-        local y_shift = - math.cos((i / segments) * math.pi) * shift_intensity
+        local segment_height = - height * (0.8 + (i / segments) * 0.5)
+
+        local segment_iterator = radians_to_degrees((i / segments) * PI)
+        local y_offset = - COS(segment_iterator) * curve_intensity - 0.1
+        local y_shift = - COS(segment_iterator) * shift_intensity
 
         if i < active_segments then
-            local color_factor = i / (segments - (segments * 0.05))
-            local segment_color = interpolate_color(colors.magenta, colors.red, color_factor)
+            local color_factor = i / (segments - (segments * 0.001))
+            local segment_color = interpolate_color(colors.bright_blue, colors.bright_purple, color_factor)
 
             if active_segments >= segments then
-                local pulse_factor = (math.sin(os.clock() * pulse_speed) + 1) / 2
-                segment_color = interpolate_color(segment_color, colors.red, pulse_factor)
+                local pulse_angle = radians_to_degrees(os.clock() * pulse_speed)
+                local pulse_factor = (SIN(pulse_angle) + 1) / 2
+                segment_color = interpolate_color(segment_color, colors.bright_red, pulse_factor)
             end
             directx.draw_rect(x, pos_y + y_offset - y_shift,
                               segment_width - 0.005,
@@ -402,15 +523,14 @@ local function draw_gauge_rpm(pos_x, pos_y, value, max_value)
     local bar_width = 0.1
     local bar_height = 0.025
     local segments = 20
-    local active_segments = math.ceil((value / max_value) * segments)
+    local active_segments = CEIL((value / max_value) * segments)
 
     draw_segment_bar_rpm(pos_x, pos_y, bar_width, bar_height, segments, active_segments)
     local num_pos_y = pos_y + bar_height - 0.15
-    --draw_numeric_display(value, pos_x, num_pos_y, 1.0, colors.yellow)
     local padded_value = string.format("%03d", value)
-    draw_text(padded_value, pos_x - 0.015,
-              num_pos_y - 0.01, 0.09, colors.red)
-    directx.draw_text(pos_x, num_pos_y + 0.02, "% REV", ALIGN_CENTRE, 0.6, colors.yellow, true)
+    draw_text(padded_value, pos_x - 0.02,
+              num_pos_y - 0.01, 0.11, colors.bright_red)
+    directx.draw_text(pos_x, num_pos_y + 0.03, "% REV", ALIGN_CENTRE, 0.6, colors.bright_gold, true)
 end
 
 local function draw_segmented_vertical_bar(value, max_value, x, y,
@@ -490,15 +610,15 @@ hard_toggle = menu.toggle(vscript, "Drift Difficulty: Hard", {}, "", function(st
 end)
 
 local function get_drift_angle(vx, vy)
-    local theta = math.atan2(vx, vy)
-    return math.abs(math.floor(math.deg(theta)))
+    local theta = ATAN2(vx, vy)
+    return ABSF(FLOOR(theta))
 end
 
 local function get_drift()
     local car = entities.get_user_vehicle_as_handle(true)
 
     local speed_vector = GET_ENTITY_SPEED_VECTOR(car, true)
-    local speed = math.floor(GET_ENTITY_SPEED(car) * 3.6)
+    local speed = FLOOR(GET_ENTITY_SPEED(car) * 3.6)
     local vx = speed_vector.x
     local vy = speed_vector.y
 
@@ -542,7 +662,7 @@ local function update_drift_score()
         local vy = speed_vector.y
 
         local drift_angle = get_drift_angle(vx, vy)
-        local base_score = math.log(math.floor(drift_duration * drift_angle))
+        local base_score = LOG10(FLOOR(drift_duration * drift_angle))
         base_score = base_score / 10
 
         local drift_multiplier = 1.0
@@ -575,61 +695,65 @@ local function update_drift_score()
     end
 end
 
-local function draw_hud_extra(vehicle_health, gear, ping, packet_loss)
+local function draw_hud_extra(vehicle_health, gear)
     local in_car = IS_PED_IN_ANY_VEHICLE(players.user_ped(), false)
     local car = entities.get_user_vehicle_as_handle(true)
     local speed_vector = GET_ENTITY_SPEED_VECTOR(car, true)
+    local speed = CEIL(GET_ENTITY_SPEED(car) * 3.6)
     local vx = speed_vector.x
     local vy = speed_vector.y
     local vz = speed_vector.z
     local drift_indicator_radius = 0.003
-    local drift_indicator_position = { x = 0.5015, y = 0.83 }
+    local drift_indicator_position = { x = 0.5015, y = 0.834}
 
     if vy < 0 then
         gear = "R"
-    elseif math.floor(vy) == 0 and in_car then
+    elseif FLOOR(vy) == 0 and in_car then
         gear = "0"
-    elseif math.floor(vy) == 0 and not in_car then
+    elseif FLOOR(vy) == 0 and not in_car then
         gear = "P"
     end
     local damage = vehicle_health
 
-    --directx.draw_text(0.50, 0.9, tostring(gear), ALIGN_CENTRE, 1.0, colors.yellow, true)
-    draw_text(tostring(gear), 0.495, 0.88, 0.17, colors.red)
-    directx.draw_circle(0.5015, 0.9015, 0.02, colors.smoke)
-
-    directx.draw_text(0.45, 0.96, "Damage", ALIGN_CENTRE, 0.5, colors.yellow, true)
-    draw_segmented_vertical_bar(vehicle_health, 1.0, 0.45, 0.85, 0.003, 0.1, colors.red, colors.green, colors.smoke, 10, 0.002)
+    directx.draw_text(0.5, 0.99, "Damage", ALIGN_CENTRE, 0.5, colors.bright_gold, true)
+    draw_segmented_vertical_bar(vehicle_health, 1.0, 0.5, 0.90, 0.003, 0.08, colors.bright_red, colors.bright_lime, colors.smoke, 10, 0.002)
 
     local is_drifting = prev_is_drifting
     update_drift_score()
 
-    local indicator_color = is_drifting and colors.green or colors.smoke
+    local indicator_color = is_drifting and colors.bright_lime or colors.smoke
     directx.draw_circle(drift_indicator_position.x, drift_indicator_position.y, drift_indicator_radius, indicator_color)
-    directx.draw_text(drift_indicator_position.x, drift_indicator_position.y + 0.02, "Drift", ALIGN_CENTRE, 0.5, colors.yellow, true)
+    directx.draw_text(drift_indicator_position.x - 0.001, drift_indicator_position.y - 0.015, "Drift", ALIGN_CENTRE, 0.47, colors.bright_gold, true)
 
-    directx.draw_text(0.45, 0.818, "Current Score:", ALIGN_CENTRE, 0.45, colors.yellow, true)
-    draw_text(tostring(math.floor(current_drift_score)), 0.427, 0.828, 0.05, colors.red)
-    directx.draw_text(0.55, 0.818, "Highest Score:", ALIGN_CENTRE, 0.45, colors.yellow, true)
-    draw_text(tostring(math.floor(highest_drift_score)), 0.527, 0.828, 0.05, colors.red)
+    directx.draw_text(0.432, 0.818, "Current Score:", ALIGN_CENTRE, 0.45, colors.bright_gold, true)
+    local padded_current_score = string.format("%012d", FLOOR(current_drift_score))
+    draw_text(padded_current_score, 0.39, 0.828, 0.05, colors.bright_red)
+    directx.draw_text(0.567, 0.818, "High Score:", ALIGN_CENTRE, 0.45, colors.bright_gold, true)
+    local padded_high_score = string.format("%012d", FLOOR(highest_drift_score))
+    draw_text(padded_high_score, 0.525, 0.828, 0.05, colors.bright_red)
 
     drift_angle = get_drift_angle(vx, vy)
-    if drift_angle == 180 then
+    if drift_angle == 180 or speed < min_drift_speed then
         drift_angle = 0
     end
 
     local padded_angle = string.format("%03d", drift_angle)
-    directx.draw_text(0.548, 0.92, "Angle", ALIGN_CENTRE, 0.5, colors.yellow, true)
-    draw_text(padded_angle, 0.538, 0.89, 0.07, colors.red)
+    directx.draw_text(0.5015, 0.88, "Angle", ALIGN_CENTRE, 0.5, colors.bright_gold, true)
+    draw_text(padded_angle, 0.488, 0.85, 0.07, colors.bright_red)
+
+
+    draw_text(tostring(gear), 0.597, 0.95, 0.10, colors.bright_red)
+    directx.draw_text(0.60, 0.99, "Gear", ALIGN_CENTRE, 0.5, colors.bright_gold, true)
+
 end
 
 menu.toggle_loop(vscript, "Dash", { "venabledash" }, "Speedometer/Tachometer &c.", function()
     local car_ptr = entities.get_user_vehicle_as_pointer(true)
     if car_ptr ~= 0 then
         local car = entities.pointer_to_handle(car_ptr)
-        local speed = math.ceil(GET_ENTITY_SPEED(car) * 3.6)
+        local speed = CEIL(GET_ENTITY_SPEED(car) * 3.6)
         local max_speed = menu.get_value(menu.ref_by_path("Vehicle>Movement>Speed Limit (KMH)"))
-        local rpm = math.ceil(_GET_VEHICLE_CURRENT_REV_RATIO(car) * 100)
+        local rpm = CEIL(_GET_VEHICLE_CURRENT_REV_RATIO(car) * 100)
         local gear = _GET_VEHICLE_CURRENT_DRIVE_GEAR(car)
         local vehicle_health = GET_ENTITY_HEALTH(car) / GET_ENTITY_MAX_HEALTH(car)
 
@@ -691,6 +815,7 @@ menu.toggle_loop(vscript, "Show FPS Bar", {"vfpsbar"},
                      local y = 0.99
                      draw_fps_bar(x, y, gauge_length, gauge_height)
                  end)
+
 menu.my_root():action("Update", {}, "The script will automatically check for updates, but you can manually check using this option.", function()
     auto_update_config.check_interval = 0
     if auto_updater.run_auto_update(auto_update_config) then
