@@ -9,6 +9,7 @@ local auto_updater = require('auto-updater')
 if auto_updater == true and not is_from_repository then
     auto_updater.run_auto_update(auto_update_config)
 end
+
 util.require_natives("3095a.g")
 
 local vscript = menu.my_root()
@@ -32,6 +33,7 @@ local highest_drift_score = 0
 local PI = math.pi
 local SQRT_3_2 = SQRT(3) / 2
 local hud_opacity_factor = 255
+local frame_rate = 30
 
 menu.trigger_commands("sleekminimap on")
 
@@ -225,6 +227,13 @@ menu.slider(vscript, "Dash Opacity", {}, "Set the dash opacity.", 0,
                 hud_opacity_factor = value
                 util.execute_in_os_thread(update_colors)
 end)
+
+menu.slider(vscript, "Refresh Rate", {}, "Set the refresh rate of your monitor in Hz, e.g. 60", 0,
+                150, frame_rate, 1,
+                function(value)
+                    frame_rate = value
+                    not_drifting_delay_frames = 0.5 * frame_rate
+                end)
 
 local function radians_to_degrees(radians)
     return radians * (180 / PI)
