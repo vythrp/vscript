@@ -33,7 +33,7 @@ local min_drift_speed = 25
 local current_drift_score = 0
 local highest_drift_score = 0
 local PI = math.pi
-local SQRT_3_2 = SQRT(3) / 2
+local SQRT_3_2 = SQRT(3) * 0.5
 local hud_opacity_factor = 255
 
 local colors = {}
@@ -399,13 +399,13 @@ local function draw_gauge_background()
     local height = triangle_side_length * SQRT_3_2
     local mid_center_x = 0.5
     local center_y = 0.92
-    local left_center_x = mid_center_x - triangle_side_length / 2
-    local right_center_x = mid_center_x + triangle_side_length / 2
+    local left_center_x = mid_center_x - triangle_side_length * 0.5
+    local right_center_x = mid_center_x + triangle_side_length * 0.5
 
     local triangle_vertices = {
-        mid_center_x - triangle_side_length / 2, center_y - height / 2,
-        mid_center_x + triangle_side_length / 2, center_y - height / 2,
-        mid_center_x, center_y + height / 2
+        mid_center_x - triangle_side_length * 0.5, center_y - height * 0.5,
+        mid_center_x + triangle_side_length * 0.5, center_y - height * 0.5,
+        mid_center_x, center_y + height * 0.5
     }
 
     directx.draw_triangle(
@@ -418,9 +418,9 @@ local function draw_gauge_background()
     directx.draw_line(triangle_vertices[1], triangle_vertices[2], triangle_vertices[3], triangle_vertices[4], border_color)
 
     local inverted_triangle_vertices = {
-        left_center_x + triangle_side_length / 2, center_y + height / 2,
-        left_center_x - triangle_side_length / 2, center_y + height / 2,
-        left_center_x, center_y - height / 2
+        left_center_x + triangle_side_length * 0.5, center_y + height * 0.5,
+        left_center_x - triangle_side_length * 0.5, center_y + height * 0.5,
+        left_center_x, center_y - height * 0.5
     }
 
     directx.draw_triangle(
@@ -433,9 +433,9 @@ local function draw_gauge_background()
     directx.draw_line(inverted_triangle_vertices[3], inverted_triangle_vertices[4], inverted_triangle_vertices[5], inverted_triangle_vertices[6], border_color)
 
     inverted_triangle_vertices = {
-        right_center_x + triangle_side_length / 2, center_y + height / 2,
-        right_center_x - triangle_side_length / 2, center_y + height / 2,
-        right_center_x, center_y - height / 2
+        right_center_x + triangle_side_length * 0.5, center_y + height * 0.5,
+        right_center_x - triangle_side_length * 0.5, center_y + height * 0.5,
+        right_center_x, center_y - height * 0.5
     }
 
     directx.draw_triangle(
@@ -511,7 +511,7 @@ local function draw_segment_bar_rpm(pos_x, pos_y, width, height, segments, activ
 
             if active_segments >= segments then
                 local pulse_angle = radians_to_degrees(os.clock() * pulse_speed)
-                local pulse_factor = (SIN(pulse_angle) + 1) / 2
+                local pulse_factor = (SIN(pulse_angle) + 1) * 0.5
                 segment_color = interpolate_color(segment_color, colors.bright_red, pulse_factor)
             end
             directx.draw_rect(x, pos_y + y_offset - y_shift,
@@ -648,7 +648,7 @@ local function get_drift()
     if is_drifting then
         prev_is_drifting = true
         frames_not_drifting = 0
-    elseif drift_angle <= current_drift_difficulty / 3 then
+    elseif drift_angle <= current_drift_difficulty * 0.333 then
         frames_not_drifting = frames_not_drifting + 1
         if frames_not_drifting >= not_drifting_delay_frames then
             prev_is_drifting = false
@@ -670,7 +670,7 @@ local function update_drift_score()
 
         local drift_angle = get_drift_angle(vx, vy)
         local base_score = LOG10(FLOOR(drift_duration * drift_angle))
-        base_score = base_score / 10
+        base_score = base_score * 0.1
 
         local drift_multiplier = 1.0
 
@@ -838,6 +838,7 @@ menu.toggle_loop(vscript, "Show FPS Bar", {"vfpsbar"},
                      local y = 0.99
                      draw_fps_bar(x, y, gauge_length, gauge_height)
                  end)
+
 
 menu.my_root():action("Update", {}, "The script will automatically check for updates, but you can manually check using this option.", function()
     auto_update_config.check_interval = 0
