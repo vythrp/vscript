@@ -15,6 +15,7 @@ util.require_natives("3095a.g")
 local vscript = menu.my_root()
 menu.divider(vscript, "vscript")
 
+local player_id = players.user()
 local wide_view = 70
 local narrow_view = 55
 local better_radar_enabled = false
@@ -244,13 +245,17 @@ local function set_FoV(is_wide)
     util.toast("Wide View: " .. (is_wide and "Active" or "Disabled") .. " (" .. fov .. " degrees)")
 end
 
-local function toggle_radar(is_enabled)
-    DISPLAY_RADAR(not is_enabled)
+local function enforce_radar_zoom()
+    if players.is_in_interior(player_id) then
+        SET_RADAR_ZOOM(900)
+    else
+        SET_RADAR_ZOOM(better_radar_enabled and 1400 or 1400)
+    end
+    SET_BIGMAP_ACTIVE(false, false)
 end
 
-local function enforce_radar_zoom()
-    SET_RADAR_ZOOM(better_radar_enabled and 1400 or 900)
-    SET_BIGMAP_ACTIVE(false, false)
+local function toggle_radar(is_enabled)
+    DISPLAY_RADAR(not is_enabled)
 end
 
 local function toggle_HUD(is_enabled)
@@ -743,8 +748,10 @@ local function draw_hud_extra(vehicle_health, gear)
     directx.draw_text(0.5015, 0.88, "Angle", ALIGN_CENTRE, 0.5, colors.bright_gold, true)
     draw_text(padded_angle, 0.488, 0.85, 0.07, colors.bright_red)
 
+
     draw_text(tostring(gear), 0.597, 0.95, 0.10, colors.bright_red)
     directx.draw_text(0.60, 0.99, "Gear", ALIGN_CENTRE, 0.5, colors.bright_gold, true)
+
 end
 
 menu.toggle_loop(vscript, "Dash", { "venabledash" }, "Speedometer/Tachometer &c.", function()
@@ -792,18 +799,21 @@ menu.toggle(vscript, "Disable HUD", { "vdisablehud" }, "Turn off the HUD.",
                 toggle_HUD(not is_enabled)
             end)
 
+
 -- Toggle the radar
 menu.toggle(vscript, "Disable Radar", { "vdisableradar" }, "Turn off the radar.",
             function(is_enabled)
                 toggle_radar(is_enabled)
             end)
 
+
 -- Toggle menu item for radar zoom
-menu.toggle(vscript, "Better Radar", { "vbetterradar" }, "The coverage of big map at the size of little map.",
-            function(on)
-                better_radar_enabled = on
-                enforce_radar_zoom()
-            end)
+menu.toggle_loop(vscript, "Better Radar", { "vbetterradar" }, "The coverage of big map at the size of little map.",
+                 function(on)
+                     better_radar_enabled = on
+                     enforce_radar_zoom()
+                 end)
+
 
 -- Mute the sirens, keep the lights
 menu.toggle(vscript, "Better Bootlicker", { "vbetterbootlicker" }, "Disable the annoying sirens in cop cars.",
@@ -816,6 +826,7 @@ menu.toggle(vscript, "Disable Cover", { "vdisablecover" }, "Disable cover (for c
             function(on)
                 toggle_cover(not on)
             end)
+
 
 -- Show FPS bar
 menu.toggle_loop(vscript, "Show FPS Bar", {"vfpsbar"},
