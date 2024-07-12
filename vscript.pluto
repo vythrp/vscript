@@ -20,7 +20,8 @@ local narrow_view = 55
 local better_radar_enabled = false
 local prev_is_drifting = false
 local history_size = 10
-local not_drifting_delay_frames = 15
+local frame_rate = FLOOR(util.get_tps())
+local not_drifting_delay_frames = FLOOR(frame_rate * 0.5)
 local vx_history = {}
 local vy_history = {}
 local frames_not_drifting = 0
@@ -33,15 +34,10 @@ local highest_drift_score = 0
 local PI = math.pi
 local SQRT_3_2 = SQRT(3) / 2
 local hud_opacity_factor = 255
-local frame_rate = 30
-
-menu.trigger_commands("sleekminimap on")
-
 
 local colors = {}
 
 local function update_colors()
-    -- Adjusted to mimic C4 Corvette instrument cluster colors
     colors.black = {
         ["r"] = 2/255,
         ["g"] = 3/255,
@@ -221,19 +217,15 @@ end
 
 util.execute_in_os_thread(update_colors)
 
+local dash = menu.my_root()
+menu.divider(dash, "Dash")
+
 menu.slider(vscript, "Dash Opacity", {}, "Set the dash opacity.", 0,
             255, hud_opacity_factor, 1,
             function(value)
                 hud_opacity_factor = value
                 util.execute_in_os_thread(update_colors)
 end)
-
-menu.slider(vscript, "Refresh Rate", {}, "Set the refresh rate of your monitor in Hz, e.g. 60", 0,
-                150, frame_rate, 1,
-                function(value)
-                    frame_rate = value
-                    not_drifting_delay_frames = 0.5 * frame_rate
-                end)
 
 local function radians_to_degrees(radians)
     return radians * (180 / PI)
@@ -625,7 +617,6 @@ end
 
 local function get_drift()
     local car = entities.get_user_vehicle_as_handle(true)
-
     local speed_vector = GET_ENTITY_SPEED_VECTOR(car, true)
     local speed = FLOOR(GET_ENTITY_SPEED(car) * 3.6)
     local vx = speed_vector.x
@@ -642,11 +633,13 @@ local function get_drift()
         drift_angle = 0
     end
     local is_drifting = drift_angle > current_drift_difficulty
-
+    local current_fps = FLOOR(util.get_tps())
     if is_drifting and not prev_is_drifting then
         drift_start_time = util.current_unix_time_seconds()
+        current_fps = FLOOR(util.get_tps())
+        not_drifting_delay_frames = FLOOR(current_fps * 0.5)
     end
-
+    --directx.draw_text(0.5, 0.5, "time to kill drift: " .. not_drifting_delay_frames/current_fps, ALIGN_CENTRE, 0.5, colors.bright_gold, true)
     if is_drifting then
         prev_is_drifting = true
         frames_not_drifting = 0
@@ -773,6 +766,10 @@ menu.toggle_loop(vscript, "Dash", { "venabledash" }, "Speedometer/Tachometer &c.
         draw_hud_extra(vehicle_health, gear)
     end
 end)
+
+local quality_of_life = menu.my_root()
+menu.divider(quality_of_life, "Quality of Life")
+menu.trigger_commands("sleekminimap on")
 
 -- Toggle between 55 and 70 degree FoV
 menu.toggle(vscript, "Wide View", { "vwideview" }, "Increase the field of view.",
