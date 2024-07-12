@@ -3,3 +3,5 @@ Place `vscript.pluto` in `Stand/Lua Scripts` and start it.   vscript will automa
 **Important:** if you want the drift scoring to work correctly you *must* set the refresh rate option to your monitor's frame rate (or the frame rate at which your game runs if you run it at e.g. half your monitor's refresh rate). 
 
 If you make an improvement, send a PR.
+
+![vscript dashboard instrument cluster](https://github.com/vythrp/vscript/blob/main/vscript_dash.png?raw=true)
