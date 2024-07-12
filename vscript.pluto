@@ -248,6 +248,11 @@ local function toggle_radar(is_enabled)
     DISPLAY_RADAR(not is_enabled)
 end
 
+local function enforce_radar_zoom()
+    SET_RADAR_ZOOM(better_radar_enabled and 1400 or 900)
+    SET_BIGMAP_ACTIVE(false, false)
+end
+
 local function toggle_HUD(is_enabled)
     DISPLAY_HUD(is_enabled)
     FORCE_OFF_WANTED_STAR_FLASH(not is_enabled)
@@ -255,14 +260,9 @@ local function toggle_HUD(is_enabled)
     DISPLAY_AREA_NAME(is_enabled)
 end
 
-local function enforce_radar_zoom()
-    SET_RADAR_ZOOM(better_radar_enabled and 1400 or 1400)
-    SET_BIGMAP_ACTIVE(false, false)
+local function fix_lighting(on)
+        menu.trigger_commands("shader superdark")
 end
-
-util.on_transition_finished(function()
-                                enforce_radar_zoom()
-end)
 
 local function toggle_muted_sirens(is_muted)
     local vehicle = GET_VEHICLE_PED_IS_USING(players.user_ped())
@@ -743,10 +743,8 @@ local function draw_hud_extra(vehicle_health, gear)
     directx.draw_text(0.5015, 0.88, "Angle", ALIGN_CENTRE, 0.5, colors.bright_gold, true)
     draw_text(padded_angle, 0.488, 0.85, 0.07, colors.bright_red)
 
-
     draw_text(tostring(gear), 0.597, 0.95, 0.10, colors.bright_red)
     directx.draw_text(0.60, 0.99, "Gear", ALIGN_CENTRE, 0.5, colors.bright_gold, true)
-
 end
 
 menu.toggle_loop(vscript, "Dash", { "venabledash" }, "Speedometer/Tachometer &c.", function()
@@ -777,13 +775,22 @@ menu.toggle(vscript, "Wide View", { "vwideview" }, "Increase the field of view."
                 set_FoV(on)
             end)
 
+-- Realistic lighting
+menu.toggle(vscript, "Realistic Lighting", { "vbetterlighting" },
+            "Make the lighting in Los Santos more realistic by killing the absurd amount of ambient light.",
+            function(on)
+                if on then
+                    fix_lighting(on)
+                else
+                    menu.trigger_commands("shader off")
+                end
+            end)
 
 -- Toggle the HUD
 menu.toggle(vscript, "Disable HUD", { "vdisablehud" }, "Turn off the HUD.",
             function(is_enabled)
                 toggle_HUD(not is_enabled)
             end)
-
 
 -- Toggle the radar
 menu.toggle(vscript, "Disable Radar", { "vdisableradar" }, "Turn off the radar.",
@@ -792,11 +799,11 @@ menu.toggle(vscript, "Disable Radar", { "vdisableradar" }, "Turn off the radar."
             end)
 
 -- Toggle menu item for radar zoom
-menu.toggle_loop(vscript, "Better Radar", { "vbetterradar" }, "The coverage of big map at the size of little map.",
-                 function(on)
-                     better_radar_enabled = on
-                     enforce_radar_zoom()
-                 end)
+menu.toggle(vscript, "Better Radar", { "vbetterradar" }, "The coverage of big map at the size of little map.",
+            function(on)
+                better_radar_enabled = on
+                enforce_radar_zoom()
+            end)
 
 -- Mute the sirens, keep the lights
 menu.toggle(vscript, "Better Bootlicker", { "vbetterbootlicker" }, "Disable the annoying sirens in cop cars.",
@@ -809,7 +816,6 @@ menu.toggle(vscript, "Disable Cover", { "vdisablecover" }, "Disable cover (for c
             function(on)
                 toggle_cover(not on)
             end)
-
 
 -- Show FPS bar
 menu.toggle_loop(vscript, "Show FPS Bar", {"vfpsbar"},
