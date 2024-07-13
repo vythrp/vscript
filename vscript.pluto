@@ -266,7 +266,7 @@ local function toggle_HUD(is_enabled)
 end
 
 local function fix_lighting(on)
-        menu.trigger_commands("shader playerswitchpulse")
+        menu.trigger_commands("shader half_direct")
 end
 
 local function toggle_muted_sirens(is_muted)
