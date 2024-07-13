@@ -786,6 +786,7 @@ menu.toggle(vscript, "Realistic Lighting", { "vbetterlighting" },
             "Make the lighting in Los Santos more realistic by killing the absurd amount of ambient light.",
             function(on)
                 if on then
+                    fix_lighting(on)
                     menu.trigger_commands("vislodlightcoronasize 0.0")
                     menu.trigger_commands("vismiscnextgenmodifier 1.05")
                     menu.trigger_commands("vismiscbrightlightglobalintensity 0.0")
@@ -798,7 +799,6 @@ menu.toggle(vscript, "Realistic Lighting", { "vbetterlighting" },
                     menu.trigger_commands("vismisccrosspmultiplierskymultiplier 0.25")
                     menu.trigger_commands("vistrafficlightnearcoronasize 0.5")
                     menu.trigger_commands("visexposurecurveoffset 104.0")
-                    fix_lighting(on)
                 else
                     menu.apply_default_state(menu.ref_by_command_name("vislodlightcoronasize"))
                     menu.apply_default_state(menu.ref_by_command_name("vismiscnextgenmodifier"))
